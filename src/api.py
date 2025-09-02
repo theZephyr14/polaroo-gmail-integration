@@ -187,6 +187,11 @@ async def calculate_monthly_report(request: CalculationRequest):
             print(f"✅ [API] Calculation completed successfully! Processed {len(properties)} properties")
             print(f"📊 [API] Summary: {len([p for p in properties if p['elec_extra'] > 0])} elec overages, {len([p for p in properties if p['water_extra'] > 0])} water overages")
             
+            # Debug: Show what we're sending to frontend
+            print(f"🔍 [API] First 3 properties being sent to frontend:")
+            for i, prop in enumerate(properties[:3]):
+                print(f"  {i+1}. {prop}")
+            
         except Exception as e:
             print(f"❌ [API] Calculation failed: {e}")
             import traceback
