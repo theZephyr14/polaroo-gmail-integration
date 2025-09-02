@@ -552,15 +552,22 @@ def _read_polaro_file(path: str | Path, *, delimiter: str, decimal: str) -> pd.D
             print(f"⚠️ [EXCEL] No 'name' found in column A, using default header (row 0)")
             header_index = 0
         
-        if header_index is not None:
-            # Use the found row as header and skip previous rows
-            if path_str.startswith(('http://', 'https://')):
-                df = pd.read_excel(io.BytesIO(excel_data), engine='openpyxl', header=header_index)
-            else:
-                df = pd.read_excel(path, engine='openpyxl', header=header_index)
+        if header_index is not None and header_index > 0:
+            # Manually set header and delete everything before the 'name' row
+            print(f"🔍 [EXCEL] Found 'name' at row {header_index}, deleting everything before it...")
             
-            print(f"🔍 [EXCEL] After setting header at row {header_index}, columns: {list(df.columns)}")
-            print(f"🔍 [EXCEL] First few rows after header:")
+            # Get the header row (the row with 'name')
+            header_row = df.iloc[header_index]
+            print(f"🔍 [EXCEL] Header row values: {list(header_row)}")
+            
+            # Set column names from the header row
+            df.columns = header_row
+            
+            # Delete everything before and including the header row
+            df = df.iloc[header_index + 1:].reset_index(drop=True)
+            
+            print(f"🔍 [EXCEL] After transformation, columns: {list(df.columns)}")
+            print(f"🔍 [EXCEL] First few rows after transformation:")
             print(df.head().to_string())
         
         return df
