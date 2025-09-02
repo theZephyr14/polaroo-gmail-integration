@@ -15,6 +15,9 @@ COPY . .
 # Create static directory if it doesn't exist
 RUN mkdir -p src/static
 
+# Test the application startup
+RUN python test_startup.py
+
 # Expose port
 EXPOSE 8000
 
