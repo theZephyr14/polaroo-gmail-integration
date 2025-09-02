@@ -55,40 +55,65 @@ def _upload_to_supabase_bytes(filename: str, data: bytes) -> str:
     return object_key
 
 async def _wait(page, label: str):
-    print(f"[wait] {label} … {WAIT_MS}ms")
+    print(f"⏳ [WAIT] {label} … {WAIT_MS}ms")
     await page.wait_for_timeout(WAIT_MS)
 
 # ---------- helpers ----------
 async def _wait_for_dashboard(page) -> None:
     """Wait until we are on any /dashboard page and the sidebar/nav is present."""
-    for _ in range(MAX_WAIT_LOOPS):  # up to ~30s
+    print("🔍 [DASHBOARD] Waiting for dashboard page to load...")
+    for i in range(MAX_WAIT_LOOPS):  # up to ~30s
         url = page.url
         has_sidebar = await page.locator("nav, [role='navigation']").count() > 0
+        print(f"🔍 [DASHBOARD] Attempt {i+1}/{MAX_WAIT_LOOPS}: URL={url}, Has sidebar={has_sidebar}")
         if "/dashboard" in url and has_sidebar:
+            print("✅ [DASHBOARD] Dashboard detected! Waiting for network idle...")
             await page.wait_for_load_state("networkidle")
+            print("✅ [DASHBOARD] Dashboard fully loaded!")
             return
         await page.wait_for_timeout(500)
     raise PWTimeout("Did not reach a dashboard page with sidebar after sign-in.")
 
 async def _ensure_logged_in(page) -> None:
     """Start at /login. If already authenticated, Polaroo will redirect to dashboard. If not, login and let it redirect."""
+    print("🚀 [LOGIN] Starting login process...")
     await page.goto(LOGIN_URL)
+    print(f"🌐 [LOGIN] Navigated to: {page.url}")
     await page.wait_for_load_state("domcontentloaded")
     await _wait(page, "after goto /login")
 
     if "login" in page.url.lower():
-        await page.get_by_role("heading", name="Sign in").wait_for(timeout=60_000)
-        await page.get_by_placeholder("Email").fill(POLAROO_EMAIL or "")
-        await page.get_by_placeholder("Password").fill(POLAROO_PASSWORD or "")
-        await _wait(page, "after filling credentials")
-        await page.get_by_role("button", name="Sign in").click()
-        await page.wait_for_load_state("domcontentloaded")
+        print("🔐 [LOGIN] Login page detected, proceeding with authentication...")
+        try:
+            print("🔍 [LOGIN] Waiting for 'Sign in' heading...")
+            await page.get_by_role("heading", name="Sign in").wait_for(timeout=30_000)  # Reduced from 60s to 30s
+            print("✅ [LOGIN] 'Sign in' heading found!")
+            
+            print("📧 [LOGIN] Filling email...")
+            await page.get_by_placeholder("Email").fill(POLAROO_EMAIL or "")
+            print("🔑 [LOGIN] Filling password...")
+            await page.get_by_placeholder("Password").fill(POLAROO_PASSWORD or "")
+            await _wait(page, "after filling credentials")
+            
+            print("🖱️ [LOGIN] Clicking Sign in button...")
+            await page.get_by_role("button", name="Sign in").click()
+            await page.wait_for_load_state("domcontentloaded")
+            print("✅ [LOGIN] Sign in button clicked, waiting for redirect...")
+        except PWTimeout as e:
+            print(f"❌ [LOGIN] Timeout waiting for login elements: {e}")
+            # Take a screenshot for debugging
+            await page.screenshot(path="_debug/login_timeout.png")
+            print("📸 [LOGIN] Screenshot saved to _debug/login_timeout.png")
+            raise
+    else:
+        print("✅ [LOGIN] Already logged in, redirected to dashboard")
 
     await _wait_for_dashboard(page)
     await _wait(page, "post-login dashboard settle")
 
 async def _open_report_from_sidebar(page) -> None:
     """Click the 'Report' item in the left sidebar to open the Report page."""
+    print("📊 [REPORT] Looking for Report link in sidebar...")
     candidates = [
         page.get_by_role("link", name="Report"),
         page.get_by_role("link", name=re.compile(r"\bReport\b", re.I)),
@@ -96,26 +121,32 @@ async def _open_report_from_sidebar(page) -> None:
         page.locator('[role="navigation"] >> text=Report'),
         page.locator('nav >> text=Report'),
     ]
-    for loc in candidates:
-        if await loc.count():
+    for i, loc in enumerate(candidates):
+        count = await loc.count()
+        print(f"🔍 [REPORT] Candidate {i+1}: Found {count} elements")
+        if count:
             btn = loc.first
             if await btn.is_visible():
+                print("✅ [REPORT] Found visible Report link, clicking...")
                 await btn.scroll_into_view_if_needed()
                 await _wait(page, "before clicking sidebar → Report")
                 await btn.click()
                 await page.wait_for_load_state("domcontentloaded")
                 await page.wait_for_load_state("networkidle")
                 await _wait(page, "after landing on Report")
+                print(f"✅ [REPORT] Successfully navigated to Report page: {page.url}")
                 return
     raise PWTimeout("Could not click 'Report' in the sidebar.")
 
 async def _set_date_range_last_month(page) -> None:
     """Open the date-range picker and select 'Last month' (robust for ng-select)."""
+    print("📅 [DATE] Looking for date range selector...")
     container = page.locator(".ng-select .ng-select-container").filter(
         has_text=re.compile(r"last\s+\d+\s*month(s)?|last\s+month", re.I)
     ).first
 
     if await container.count() == 0:
+        print("🔍 [DATE] Trying alternative selector...")
         chip = page.get_by_text(re.compile(r"^last\s+\d+\s*month(s)?$|^last\s+month$", re.I)).first
         if await chip.count():
             container = chip.locator(
@@ -125,6 +156,7 @@ async def _set_date_range_last_month(page) -> None:
     if await container.count() == 0:
         raise PWTimeout("Date-range selector not found (no ng-select container with 'Last … month').")
 
+    print("✅ [DATE] Found date range selector, opening dropdown...")
     await container.scroll_into_view_if_needed()
     await _wait(page, "before opening date-range menu")
 
@@ -136,7 +168,9 @@ async def _set_date_range_last_month(page) -> None:
         await container.click()
         await page.wait_for_timeout(600)
         opened = await listbox_open().count() > 0
-    except Exception:
+        print(f"🔍 [DATE] Click attempt 1: Dropdown opened = {opened}")
+    except Exception as e:
+        print(f"⚠️ [DATE] Click attempt 1 failed: {e}")
         opened = False
 
     if not opened:
@@ -145,12 +179,14 @@ async def _set_date_range_last_month(page) -> None:
             await arrow.click()
             await page.wait_for_timeout(600)
             opened = await listbox_open().count() > 0
+            print(f"🔍 [DATE] Click attempt 2 (arrow): Dropdown opened = {opened}")
 
     if not opened:
         await container.focus()
         await page.keyboard.press("Enter")
         await page.wait_for_timeout(600)
         opened = await listbox_open().count() > 0
+        print(f"🔍 [DATE] Click attempt 3 (Enter): Dropdown opened = {opened}")
 
     if not opened:
         box = await container.bounding_box()
@@ -158,12 +194,15 @@ async def _set_date_range_last_month(page) -> None:
             await page.mouse.click(box["x"] + box["width"] - 8, box["y"] + box["height"] / 2)
             await page.wait_for_timeout(600)
             opened = await listbox_open().count() > 0
+            print(f"🔍 [DATE] Click attempt 4 (mouse): Dropdown opened = {opened}")
 
     if not opened:
         raise PWTimeout("Could not open the date-range dropdown.")
 
+    print("✅ [DATE] Date range dropdown opened successfully!")
     await _wait(page, "after opening date-range menu")
 
+    print("🔍 [DATE] Looking for 'Last month' option...")
     option = page.locator(
         '.ng-dropdown-panel .ng-option',
         has_text=re.compile(r"^\s*last\s+month(s)?\s*$", re.I),
@@ -171,54 +210,68 @@ async def _set_date_range_last_month(page) -> None:
     if not await option.count():
         option = page.get_by_text(re.compile(r"^\s*last\s+month(s)?\s*$", re.I)).first
 
-    await option.wait_for(timeout=60_000)
+    await option.wait_for(timeout=30_000)  # Reduced from 60s to 30s
     await _wait(page, "before selecting 'Last month'")
     await option.click()
     await page.wait_for_load_state("networkidle")
     await _wait(page, "after selecting 'Last month'")
+    print("✅ [DATE] Successfully selected 'Last month'!")
 
 async def _open_download_menu(page) -> None:
     """Click the visible 'Download' control."""
+    print("📥 [DOWNLOAD] Looking for Download button...")
     await page.evaluate("window.scrollTo(0, 0)")
     btns = page.get_by_text("Download", exact=True)
     if not await btns.count():
+        print("🔍 [DOWNLOAD] Trying case-insensitive search...")
         btns = page.locator(r'text=/\bdownload\b/i')
     cnt = await btns.count()
+    print(f"🔍 [DOWNLOAD] Found {cnt} Download elements")
     if cnt == 0:
         raise PWTimeout("No element with visible text matching 'Download' found.")
     for i in range(cnt):
         el = btns.nth(i)
         if await el.is_visible():
+            print(f"✅ [DOWNLOAD] Found visible Download button #{i+1}, clicking...")
             await el.scroll_into_view_if_needed()
             await _wait(page, "before opening Download menu")
             await el.click()
             await page.wait_for_timeout(500)
             await _wait(page, "after opening Download menu")
+            print("✅ [DOWNLOAD] Download menu opened successfully!")
             return
     raise PWTimeout("Found 'Download' elements, but none were visible/clickable.")
 
 async def _pick_download_excel(page):
     """Return a locator for 'Download Excel'; fallback to 'Download CSV'."""
+    print("📊 [FORMAT] Looking for download format options...")
     await page.wait_for_timeout(200)
     # Prioritize Excel format
     excel = page.get_by_text("Download Excel", exact=True)
     if await excel.count():
+        print("✅ [FORMAT] Found 'Download Excel' option!")
         return excel.first
     
     # Try other Excel variations
-    for label in ["Download XLSX", "Download XLS", "Descargar Excel", "Descargar XLSX"]:
+    excel_labels = ["Download XLSX", "Download XLS", "Descargar Excel", "Descargar XLSX"]
+    for label in excel_labels:
         loc = page.get_by_text(label, exact=True)
         if await loc.count():
+            print(f"✅ [FORMAT] Found '{label}' option!")
             return loc.first
     
+    print("⚠️ [FORMAT] Excel format not found, trying CSV...")
     # Fallback to CSV if Excel not available
     csv = page.get_by_text("Download CSV", exact=True)
     if await csv.count():
+        print("✅ [FORMAT] Found 'Download CSV' option!")
         return csv.first
     
-    for label in ["Descargar CSV"]:
+    csv_labels = ["Descargar CSV"]
+    for label in csv_labels:
         loc = page.get_by_text(label, exact=True)
         if await loc.count():
+            print(f"✅ [FORMAT] Found '{label}' option!")
             return loc.first
     
     raise PWTimeout("Dropdown did not contain 'Download Excel' or 'Download CSV'.")
@@ -230,12 +283,14 @@ async def download_report_bytes() -> tuple[bytes, str]:
       /login → dashboard → sidebar 'Report' → set 'Last month' → Download → Excel
       → save locally (timestamped) → upload to Supabase Storage.
     """
+    print("🚀 [START] Starting Polaroo report download process...")
     Path("_debug").mkdir(exist_ok=True)
     Path("_debug/downloads").mkdir(parents=True, exist_ok=True)
     user_data = str(Path("./.chrome-profile").resolve())
     Path(user_data).mkdir(exist_ok=True)
 
     async with async_playwright() as p:
+        print("🌐 [BROWSER] Launching browser...")
         context = await p.chromium.launch_persistent_context(
             user_data_dir=user_data,
             headless=True,  # headless for production
@@ -248,50 +303,68 @@ async def download_report_bytes() -> tuple[bytes, str]:
         page = context.pages[0] if context.pages else await context.new_page()
 
         # Safe debug listeners
-        page.on("console",       lambda m: print("BROWSER:", m.type, m.text))
-        page.on("requestfailed", lambda r: print("REQ-FAILED:", r.url, r.failure or ""))
-        page.on("response",      lambda r: print("HTTP", r.status, r.url) if r.status >= 400 else None)
+        page.on("console",       lambda m: print("🌐 [BROWSER]", m.type, m.text))
+        page.on("requestfailed", lambda r: print("❌ [BROWSER] REQ-FAILED:", r.url, r.failure or ""))
+        page.on("response",      lambda r: print("📡 [BROWSER] HTTP", r.status, r.url) if r.status >= 400 else None)
 
-        # 1) Login / dashboard
-        await _ensure_logged_in(page)
+        try:
+            # 1) Login / dashboard
+            print("🔐 [STEP 1/4] Starting login process...")
+            await _ensure_logged_in(page)
 
-        # 2) Open Report
-        await _open_report_from_sidebar(page)
+            # 2) Open Report
+            print("📊 [STEP 2/4] Opening Report page...")
+            await _open_report_from_sidebar(page)
 
-        # 3) Set Last month
-        await _set_date_range_last_month(page)
+            # 3) Set Last month
+            print("📅 [STEP 3/4] Setting date range to Last month...")
+            await _set_date_range_last_month(page)
 
-        # 4) Download → Excel (preferred) or CSV
-        await _open_download_menu(page)
-        item = await _pick_download_excel(page)
+            # 4) Download → Excel (preferred) or CSV
+            print("📥 [STEP 4/4] Starting download process...")
+            await _open_download_menu(page)
+            item = await _pick_download_excel(page)
 
-        await _wait(page, "before clicking Download item")
-        async with page.expect_download() as dl_info:
-            await item.click()
-        dl = await dl_info.value
+            print("💾 [DOWNLOAD] Initiating file download...")
+            await _wait(page, "before clicking Download item")
+            async with page.expect_download() as dl_info:
+                await item.click()
+            dl = await dl_info.value
 
-        # --- timestamped filename (UTC) ---
-        suggested = dl.suggested_filename or "polaroo_report.xlsx"
-        stem = Path(suggested).stem or "polaroo_report"
-        ext = Path(suggested).suffix or ".xlsx"
-        ts  = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-        filename = f"{stem}_{ts}{ext}"
+            # --- timestamped filename (UTC) ---
+            suggested = dl.suggested_filename or "polaroo_report.xlsx"
+            stem = Path(suggested).stem or "polaroo_report"
+            ext = Path(suggested).suffix or ".xlsx"
+            ts  = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+            filename = f"{stem}_{ts}{ext}"
 
-        # Save locally for debugging/inspection
-        local_path = Path("_debug/downloads") / filename
-        await dl.save_as(str(local_path))
-        size = local_path.stat().st_size if local_path.exists() else 0
-        print(f"[saved] {local_path} ({size} bytes)")
+            # Save locally for debugging/inspection
+            local_path = Path("_debug/downloads") / filename
+            await dl.save_as(str(local_path))
+            size = local_path.stat().st_size if local_path.exists() else 0
+            print(f"💾 [SAVED] {local_path} ({size} bytes)")
 
-        # Read bytes for upload
-        data = local_path.read_bytes()
+            # Read bytes for upload
+            data = local_path.read_bytes()
 
-        # Upload to Supabase Storage (same timestamped name)
-        key = _upload_to_supabase_bytes(filename, data)
-        print(f"[supabase] uploaded to: {STORAGE_BUCKET}/{key}")
+            # Upload to Supabase Storage (same timestamped name)
+            print("☁️ [UPLOAD] Uploading to Supabase...")
+            key = _upload_to_supabase_bytes(filename, data)
+            print(f"☁️ [UPLOAD] Successfully uploaded to: {STORAGE_BUCKET}/{key}")
 
-        await _wait(page, "after download+upload")
-        await context.close()
+            await _wait(page, "after download+upload")
+            print("✅ [SUCCESS] Report download and upload completed successfully!")
+            
+        except Exception as e:
+            print(f"❌ [ERROR] Scraping failed: {e}")
+            # Take a screenshot for debugging
+            await page.screenshot(path="_debug/error_screenshot.png")
+            print("📸 [DEBUG] Error screenshot saved to _debug/error_screenshot.png")
+            raise
+        finally:
+            await context.close()
+            print("🔚 [CLEANUP] Browser closed")
+            
         return data, filename
 
 

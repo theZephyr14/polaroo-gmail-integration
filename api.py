@@ -106,19 +106,27 @@ async def calculate_monthly_report(request: CalculationRequest):
     3. Optionally saves results to database
     4. Returns processed data for frontend display
     """
+    print("🚀 [API] Starting monthly calculation request...")
     try:
         # Step 1: Download latest report from Polaroo
+        print("📥 [API] Step 1/3: Downloading report from Polaroo...")
         file_bytes, filename = download_report_sync()
+        print(f"✅ [API] Report downloaded: {filename} ({len(file_bytes)} bytes)")
         
         # Step 2: Upload to Supabase for archival (if auto_save is enabled)
         if request.auto_save:
+            print("☁️ [API] Step 2/3: Archiving report to Supabase...")
             try:
                 upload_raw(date.today(), file_bytes, filename)
+                print("✅ [API] Report archived successfully")
             except Exception as e:
                 # Log warning but continue processing
-                print(f"Warning: Failed to archive report: {e}")
+                print(f"⚠️ [API] Warning: Failed to archive report: {e}")
+        else:
+            print("⏭️ [API] Step 2/3: Skipping archive (auto_save disabled)")
         
         # Step 3: Process the data using room-based allowances
+        print("🧮 [API] Step 3/3: Processing data and calculating excess charges...")
         with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx" if filename.endswith('.xlsx') else ".csv") as tmp:
             tmp.write(file_bytes)
             tmp_path = tmp.name
@@ -126,6 +134,7 @@ async def calculate_monthly_report(request: CalculationRequest):
         try:
             # Process with room-based allowances (no manual allowances needed)
             df = process_usage(tmp_path, allowances=None)
+            print(f"✅ [API] Data processed: {len(df)} properties found")
             
             # Convert DataFrame to frontend-compatible format
             properties = []
@@ -157,6 +166,9 @@ async def calculate_monthly_report(request: CalculationRequest):
             # Store results globally (in production, use Redis or database)
             calculation_results["latest"] = results_data
             
+            print(f"✅ [API] Calculation completed successfully! Processed {len(properties)} properties")
+            print(f"📊 [API] Summary: {results_data['summary']['properties_with_elec_overages']} elec overages, {results_data['summary']['properties_with_water_overages']} water overages")
+            
             return CalculationResponse(
                 success=True,
                 message=f"Monthly calculation completed successfully using room-based allowances. Processed {len(properties)} properties.",
@@ -167,10 +179,12 @@ async def calculate_monthly_report(request: CalculationRequest):
             # Clean up temporary file
             try:
                 Path(tmp_path).unlink()
+                print("🧹 [API] Temporary file cleaned up")
             except Exception:
                 pass
         
     except Exception as e:
+        print(f"❌ [API] Calculation failed: {e}")
         return CalculationResponse(
             success=False,
             message="Calculation failed",
