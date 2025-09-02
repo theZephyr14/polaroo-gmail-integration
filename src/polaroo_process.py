@@ -723,8 +723,12 @@ def process_usage(
     # Ensure cost columns are numeric
     for cost_col in ['electricityCost', 'waterCost']:
         if cost_col in filtered_df.columns:
+            print(f"🔍 [DEBUG] Converting {cost_col} to numeric...")
+            print(f"🔍 [DEBUG] First 5 values before conversion: {list(filtered_df[cost_col].head())}")
             filtered_df[cost_col] = pd.to_numeric(filtered_df[cost_col], errors='coerce').fillna(0.0)
+            print(f"🔍 [DEBUG] First 5 values after conversion: {list(filtered_df[cost_col].head())}")
         else:
+            print(f"⚠️ [DEBUG] Column {cost_col} not found, setting to 0.0")
             filtered_df[cost_col] = 0.0
 
     # Select the first available service owner (prefer electricity, then water)
@@ -742,6 +746,8 @@ def process_usage(
     
     for _, row in filtered_df.iterrows():
         unit_name = row[name_column]  # Use the detected name column
+        print(f"🔍 [DEBUG] Processing property: {unit_name}")
+        
         # Get allowance for this specific address
         allowance = get_allowance_for_address(unit_name)
         allowances_list.append(allowance)
@@ -749,10 +755,13 @@ def process_usage(
         # Calculate costs
         elec_cost = row.get('electricityCost', 0.0)
         water_cost = row.get('waterCost', 0.0)
+        print(f"🔍 [DEBUG] Costs for {unit_name}: elec={elec_cost}, water={water_cost}")
+        
         total_cost = elec_cost + water_cost
         
         # Calculate total extra (combined overage)
         total_extra = max(0.0, total_cost - allowance)
+        print(f"🔍 [DEBUG] Total for {unit_name}: cost={total_cost}, allowance={allowance}, extra={total_extra}")
         
         total_costs.append(total_cost)
         total_extras.append(total_extra)
@@ -782,6 +791,17 @@ def process_usage(
     filtered_df.rename(columns={'total_cost': 'Total Cost'}, inplace=True)
     filtered_df.rename(columns={'total_extra': 'Total Extra'}, inplace=True)
 
+    # Debug: Show what's in the DataFrame before final selection
+    print(f"🔍 [DEBUG] DataFrame before final selection has {len(filtered_df)} rows")
+    print(f"🔍 [DEBUG] Available columns: {list(filtered_df.columns)}")
+    print(f"🔍 [DEBUG] First 3 rows of key columns:")
+    key_cols = ['Property', 'Allowance', 'Electricity Cost', 'Water Cost', 'Total Cost', 'Total Extra']
+    for col in key_cols:
+        if col in filtered_df.columns:
+            print(f"  {col}: {list(filtered_df[col].head(3))}")
+        else:
+            print(f"  {col}: COLUMN NOT FOUND")
+    
     # Select final columns in the exact order requested
     final_columns = [
         'Property',
@@ -795,6 +815,10 @@ def process_usage(
     
     # Sort alphabetically by Property name
     final_df = final_df.sort_values('Property').reset_index(drop=True)
+    
+    print(f"🔍 [DEBUG] Final DataFrame has {len(final_df)} rows")
+    print(f"🔍 [DEBUG] Final DataFrame first 3 rows:")
+    print(final_df.head(3).to_string())
 
     # Write to Excel if requested
     if output_path:
