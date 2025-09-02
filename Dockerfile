@@ -1,6 +1,5 @@
 FROM python:3.10-slim
 
-# Force rebuild - cache buster
 # Set working directory
 WORKDIR /app
 
