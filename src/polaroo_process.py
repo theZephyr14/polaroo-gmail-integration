@@ -702,35 +702,11 @@ def process_usage(
     usage_df['_base_code'] = base_codes
     usage_df['_letter'] = letters
 
-    # Build list of user flat specifications (dataset_keys, base_user, letter_user)
-    user_specs: list[tuple[list[str], str, Optional[str]]] = []
-    for addr in flat_addresses:
-        bkey_user, fcode_user = _parse_name_user(addr)
-        # Determine which dataset building keys correspond to this user key
-        dataset_keys = _SYNONYMS.get(bkey_user, [bkey_user])
-        base_user = _base_code(fcode_user)
-        user_letter: Optional[str] = None
-        parts = fcode_user.split('-') if fcode_user else []
-        if len(parts) >= 2 and parts[-1].isalpha():
-            user_letter = parts[-1]
-        user_specs.append((dataset_keys, base_user, user_letter))
-
-    # Create a boolean mask indicating which rows match any user specification
-    match_mask = []
-    for bkey, base, letter in zip(usage_df['_building_key'], usage_df['_base_code'], usage_df['_letter']):
-        matched = False
-        for dataset_keys, user_base, user_letter in user_specs:
-            # Skip empty floor codes (require explicit floor)
-            if not user_base:
-                continue
-            if bkey in dataset_keys and base == user_base:
-                if user_letter is None or user_letter == letter:
-                    matched = True
-                    break
-        match_mask.append(matched)
-
-    # Filter DataFrame to matched rows
-    filtered_df = usage_df[match_mask].copy()
+    # Process ALL properties from the Excel file (no filtering)
+    print(f"🔍 [PROCESSING] Processing ALL {len(usage_df)} properties from Excel file...")
+    
+    # Use all data instead of filtering
+    filtered_df = usage_df.copy()
 
     # Ensure cost columns are numeric
     for cost_col in ['electricityCost', 'waterCost']:
@@ -748,39 +724,40 @@ def process_usage(
         filtered_df['service_owner'] = pd.NA
 
     # Compute extra charges using room-based allowances
-    elec_extras = []
-    water_extras = []
     allowances_list = []
+    total_costs = []
+    total_extras = []
     
     for _, row in filtered_df.iterrows():
-        unit_name = row['name']
+        unit_name = row[name_column]  # Use the detected name column
         # Get allowance for this specific address
         allowance = get_allowance_for_address(unit_name)
         allowances_list.append(allowance)
         
-        # Calculate excess charges
+        # Calculate costs
         elec_cost = row.get('electricityCost', 0.0)
         water_cost = row.get('waterCost', 0.0)
+        total_cost = elec_cost + water_cost
         
-        elec_extra = max(0.0, elec_cost - allowance)
-        water_extra = max(0.0, water_cost - allowance)
+        # Calculate total extra (combined overage)
+        total_extra = max(0.0, total_cost - allowance)
         
-        elec_extras.append(elec_extra)
-        water_extras.append(water_extra)
+        total_costs.append(total_cost)
+        total_extras.append(total_extra)
     
     filtered_df['allowance'] = allowances_list
-    filtered_df['elec_extra'] = elec_extras
-    filtered_df['water_extra'] = water_extras
+    filtered_df['total_cost'] = total_costs
+    filtered_df['total_extra'] = total_extras
 
     # Rename columns to user‑friendly names
     rename_map = {
-        'name': 'unit',
+        name_column: 'Property',  # Use the detected name column
         'waterProvider': 'water_provider',
         'electricityProvider': 'electricity_provider',
         'electricityCode': 'elec_code',
         'waterCode': 'water_code',
-        'electricityCost': 'electricity_cost',
-        'waterCost': 'water_cost',
+        'electricityCost': 'Electricity Cost',
+        'waterCost': 'Water Cost',
     }
     for orig, new in rename_map.items():
         if orig in filtered_df.columns:
@@ -788,21 +765,24 @@ def process_usage(
         else:
             filtered_df[new] = pd.NA
 
-    # Select final columns in order
+    # Rename allowance column
+    filtered_df.rename(columns={'allowance': 'Allowance'}, inplace=True)
+    filtered_df.rename(columns={'total_cost': 'Total Cost'}, inplace=True)
+    filtered_df.rename(columns={'total_extra': 'Total Extra'}, inplace=True)
+
+    # Select final columns in the exact order requested
     final_columns = [
-        'unit',
-        'allowance',
-        'water_provider',
-        'electricity_provider',
-        'elec_code',
-        'water_code',
-        'service_owner',
-        'electricity_cost',
-        'water_cost',
-        'elec_extra',
-        'water_extra',
+        'Property',
+        'Allowance', 
+        'Electricity Cost',
+        'Water Cost',
+        'Total Cost',
+        'Total Extra',
     ]
     final_df = filtered_df[final_columns].copy()
+    
+    # Sort alphabetically by Property name
+    final_df = final_df.sort_values('Property').reset_index(drop=True)
 
     # Write to Excel if requested
     if output_path:
