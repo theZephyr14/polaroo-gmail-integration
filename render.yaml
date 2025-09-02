@@ -2,7 +2,11 @@ services:
   - type: web
     name: polaroo-utility-calculator
     env: python
-    buildCommand: pip install -r requirements.txt && playwright install chromium && playwright install-deps
+    buildCommand: |
+      pip install -r requirements.txt
+      playwright install chromium
+      playwright install-deps chromium
+      apt-get update && apt-get install -y google-chrome-stable
     startCommand: uvicorn api:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PYTHONPATH
