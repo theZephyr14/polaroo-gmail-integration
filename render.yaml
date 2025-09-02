@@ -2,11 +2,11 @@ services:
   - type: web
     name: polaroo-utility-calculator
     env: python
-    buildCommand: pip install -r requirements.txt
+    buildCommand: pip install -r requirements.txt && playwright install chromium && playwright install-deps
     startCommand: uvicorn api:app --host 0.0.0.0 --port $PORT
     envVars:
-      - key: PYTHON_VERSION
-        value: 3.11.0
+      - key: PYTHONPATH
+        value: /opt/render/project/src
       - key: POLAROO_EMAIL
         sync: false
       - key: POLAROO_PASSWORD
@@ -15,7 +15,3 @@ services:
         sync: false
       - key: SUPABASE_SERVICE_KEY
         sync: false
-      - key: STORAGE_BUCKET
-        value: polaroo-reports
-      - key: STORAGE_PREFIX
-        value: monthly-reports/
