@@ -558,6 +558,10 @@ def _read_polaro_file(path: str | Path, *, delimiter: str, decimal: str) -> pd.D
                 df = pd.read_excel(io.BytesIO(excel_data), engine='openpyxl', header=header_index)
             else:
                 df = pd.read_excel(path, engine='openpyxl', header=header_index)
+            
+            print(f"🔍 [EXCEL] After setting header at row {header_index}, columns: {list(df.columns)}")
+            print(f"🔍 [EXCEL] First few rows after header:")
+            print(df.head().to_string())
         
         return df
     
@@ -658,7 +662,23 @@ def process_usage(
     fcodes: list[str] = []
     base_codes: list[str] = []
     letters: list[Optional[str]] = []
-    for name in usage_df['name'].astype(str):
+    # Debug: Check what columns are available
+    print(f"🔍 [DEBUG] Available columns: {list(usage_df.columns)}")
+    print(f"🔍 [DEBUG] Looking for 'name' column...")
+    
+    # Try different possible column names for the name column
+    name_column = None
+    for col_name in ['name', 'Name', 'NAME', 'unit', 'Unit', 'UNIT']:
+        if col_name in usage_df.columns:
+            name_column = col_name
+            print(f"✅ [DEBUG] Found name column: '{col_name}'")
+            break
+    
+    if name_column is None:
+        print(f"❌ [DEBUG] No name column found! Available columns: {list(usage_df.columns)}")
+        raise ValueError(f"No 'name' column found in DataFrame. Available columns: {list(usage_df.columns)}")
+    
+    for name in usage_df[name_column].astype(str):
         bkey, fcode = _parse_name_dataset(name)
         bkeys.append(bkey)
         fcodes.append(fcode)
