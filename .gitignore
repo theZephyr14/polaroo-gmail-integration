@@ -56,3 +56,9 @@ deploy.sh
 prepare_deployment.py
 polaroo-deployment.zip
 deployment/
+
+# Chrome profile and browser data
+.chrome-profile/
+
+# Git installer
+git-installer.exe
