@@ -547,10 +547,10 @@ def _read_polaro_file(path: str | Path, *, delimiter: str, decimal: str) -> pd.D
             if not row_values:
                 continue
                 
-            # Check if this row has 'name' as the first column (exact match)
-            if row_values[0] == 'name':
+            # Check if this row contains 'name' anywhere (not just first column)
+            if 'name' in row_values:
                 # Calculate a score based on how many property-related columns we find
-                property_keywords = ['electricity', 'water', 'gas', 'cost', 'provider', 'asset', 'room', 'bath']
+                property_keywords = ['electricity', 'water', 'gas', 'cost', 'provider', 'asset', 'room', 'bath', 'contracts', 'consumption']
                 score = 0
                 
                 # Count property-related keywords in the row
@@ -567,12 +567,20 @@ def _read_polaro_file(path: str | Path, *, delimiter: str, decimal: str) -> pd.D
                 if any('cost' in val for val in row_values):
                     score += 1
                 
+                # Bonus points for having 'name' as first column
+                if row_values[0] == 'name':
+                    score += 2
+                
+                # Bonus points for having 'contracts' (indicates property details)
+                if 'contracts' in row_values:
+                    score += 1
+                
                 if score > best_score:
                     best_score = score
                     best_candidate = idx
         
         # Use the best candidate if we found one with a good score
-        if best_candidate is not None and best_score >= 3:
+        if best_candidate is not None and best_score >= 2:
             header_index = best_candidate
         else:
             # Fallback: look for any row with 'name' column
