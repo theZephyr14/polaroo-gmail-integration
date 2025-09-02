@@ -117,6 +117,9 @@ async def calculate_monthly_report(request: CalculationRequest):
         if request.auto_save:
             print("☁️ [API] Step 2/3: Archiving report to Supabase...")
             try:
+                # Ensure we have bytes, not BytesIO
+                if hasattr(file_bytes, 'read'):
+                    file_bytes = file_bytes.read()
                 upload_raw(date.today(), file_bytes, filename)
                 print("✅ [API] Report archived successfully")
             except Exception as e:
@@ -128,25 +131,46 @@ async def calculate_monthly_report(request: CalculationRequest):
         # Step 3: Process the data using room-based allowances
         print("🧮 [API] Step 3/3: Processing data and calculating excess charges...")
         with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx" if filename.endswith('.xlsx') else ".csv") as tmp:
-            tmp.write(file_bytes)
+            # Ensure we write bytes
+            if hasattr(file_bytes, 'read'):
+                file_bytes.seek(0)
+                tmp.write(file_bytes.read())
+            else:
+                tmp.write(file_bytes)
             tmp_path = tmp.name
         
         try:
+            print(f"📊 [API] Processing file: {tmp_path}")
+            
+            # First, let's inspect the Excel file to see what columns we have
+            if filename.endswith('.xlsx'):
+                df_raw = pd.read_excel(tmp_path, engine='openpyxl')
+                print(f"🔍 [API] Excel columns found: {list(df_raw.columns)}")
+                print(f"🔍 [API] First few rows:")
+                print(df_raw.head().to_string())
+            
             # Process with room-based allowances (no manual allowances needed)
             df = process_usage(tmp_path, allowances=None)
             print(f"✅ [API] Data processed: {len(df)} properties found")
             
-            # Convert DataFrame to frontend-compatible format
+            # Debug: print column names
+            print(f"🔍 [API] Processed DataFrame columns: {list(df.columns)}")
+            
+            # Convert DataFrame to frontend-compatible format with error handling
             properties = []
             for _, row in df.iterrows():
-                properties.append({
-                    "name": row['unit'],
-                    "elec_cost": float(row['electricity_cost']),
-                    "water_cost": float(row['water_cost']),
-                    "elec_extra": float(row['elec_extra']),
-                    "water_extra": float(row['water_extra']),
-                    "allowance": float(row['allowance'])
-                })
+                try:
+                    properties.append({
+                        "name": str(row.get('unit', row.get('name', 'Unknown'))),
+                        "elec_cost": float(row.get('electricity_cost', 0)),
+                        "water_cost": float(row.get('water_cost', 0)),
+                        "elec_extra": float(row.get('elec_extra', 0)),
+                        "water_extra": float(row.get('water_extra', 0)),
+                        "allowance": float(row.get('allowance', 0))
+                    })
+                except Exception as e:
+                    print(f"⚠️ [API] Error processing row: {e}")
+                    print(f"🔍 [API] Row data: {dict(row)}")
             
             results_data = {
                 "properties": properties,
@@ -185,6 +209,8 @@ async def calculate_monthly_report(request: CalculationRequest):
         
     except Exception as e:
         print(f"❌ [API] Calculation failed: {e}")
+        import traceback
+        traceback.print_exc()
         return CalculationResponse(
             success=False,
             message="Calculation failed",
@@ -264,6 +290,46 @@ async def get_configuration():
         "address_room_mapping": ADDRESS_ROOM_MAPPING,
         "properties": USER_ADDRESSES
     }
+
+@app.get("/api/store/excel")
+async def store_excel_locally():
+    """Store the latest Excel file locally on Render (for debugging)."""
+    if "latest" not in calculation_results:
+        raise HTTPException(status_code=404, detail="No calculation results available")
+    
+    try:
+        # Create a local directory for storing files
+        storage_dir = Path("/tmp/polaroo_reports")
+        storage_dir.mkdir(exist_ok=True)
+        
+        # Get the latest downloaded Excel file from the debug directory
+        debug_dir = Path("_debug/downloads")
+        if debug_dir.exists():
+            excel_files = list(debug_dir.glob("*.xlsx"))
+            if excel_files:
+                latest_file = max(excel_files, key=lambda f: f.stat().st_mtime)
+                
+                # Copy to persistent storage
+                stored_path = storage_dir / latest_file.name
+                stored_path.write_bytes(latest_file.read_bytes())
+                
+                return {
+                    "success": True,
+                    "message": f"Excel file stored locally at {stored_path}",
+                    "file_size": stored_path.stat().st_size,
+                    "file_path": str(stored_path)
+                }
+        
+        return {
+            "success": False,
+            "message": "No Excel files found in debug directory"
+        }
+        
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"Failed to store Excel file: {e}"
+        }
 
 if __name__ == "__main__":
     import uvicorn
