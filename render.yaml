@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: polaroo-utility-calculator
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn api:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: POLAROO_EMAIL
+        sync: false
+      - key: POLAROO_PASSWORD
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_KEY
+        sync: false
+      - key: STORAGE_BUCKET
+        value: polaroo-reports
+      - key: STORAGE_PREFIX
+        value: monthly-reports/

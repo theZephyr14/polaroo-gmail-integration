@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Utility Bill Calculator</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary-color: #0d6efd;
+            --success-color: #198754;
+            --warning-color: #ffc107;
+            --danger-color: #dc3545;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .main-container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            margin: 2rem auto;
+            max-width: 1200px;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, var(--primary-color), #0056b3);
+            color: white;
+            padding: 2rem;
+            border-radius: 20px 20px 0 0;
+            text-align: center;
+        }
+        
+        .metric-card {
+            background: white;
+            border-radius: 15px;
+            padding: 1.5rem;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease;
+        }
+        
+        .metric-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .btn-calculate {
+            background: linear-gradient(135deg, var(--success-color), #146c43);
+            border: none;
+            border-radius: 50px;
+            padding: 1rem 3rem;
+            font-size: 1.2rem;
+            font-weight: bold;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-calculate:hover {
+            transform: scale(1.05);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+        }
+        
+        .loading-spinner {
+            display: none;
+        }
+        
+        .results-section {
+            display: none;
+        }
+        
+        .table-container {
+            background: white;
+            border-radius: 15px;
+            padding: 1.5rem;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .overage-row {
+            background-color: #fff3cd !important;
+            border-left: 4px solid var(--warning-color);
+        }
+        
+        .chart-container {
+            background: white;
+            border-radius: 15px;
+            padding: 1.5rem;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            margin-top: 2rem;
+        }
+        
+        .sidebar {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 1.5rem;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        }
+        
+        .alert-custom {
+            border-radius: 15px;
+            border: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="main-container">
+            <!-- Header -->
+            <div class="header">
+                <h1><i class="fas fa-bolt"></i> Utility Bill Calculator</h1>
+                <p class="mb-0">Automated monthly utility analysis and excess charge calculation</p>
+            </div>
+            
+            <div class="p-4">
+                <!-- Configuration Sidebar -->
+                <div class="row">
+                    <div class="col-md-3">
+                        <div class="sidebar">
+                            <h5><i class="fas fa-cog"></i> Configuration</h5>
+                            <hr>
+                            
+                            <div class="mb-3">
+                                <div class="alert alert-info">
+                                    <i class="fas fa-info-circle"></i>
+                                    <strong>Room-Based Allowances:</strong>
+                                    <ul class="mb-0 mt-2">
+                                        <li>1 room: €50</li>
+                                        <li>2 room: €70</li>
+                                        <li>3 room: €100</li>
+                                        <li>4 room: €130</li>
+                                        <li>Padilla 1º 3ª: €150 (special)</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" id="autoSave" checked>
+                                    <label class="form-check-label" for="autoSave">
+                                        Auto-save to database
+                                    </label>
+                                </div>
+                            </div>
+                            
+                            <button class="btn btn-calculate btn-lg w-100" onclick="runCalculation()">
+                                <i class="fas fa-calculator"></i> Calculate Monthly Report
+                            </button>
+                            
+                            <div class="loading-spinner text-center mt-3">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                                <p class="mt-2">Processing utility data...</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Main Content -->
+                    <div class="col-md-9">
+                        <!-- Info Alert -->
+                        <div class="alert alert-info alert-custom">
+                            <i class="fas fa-info-circle"></i>
+                            <strong>How it works:</strong> Click "Calculate Monthly Report" to automatically download 
+                            the latest utility data from Polaroo, calculate excess charges based on room-based 
+                            allowances (1 room: €50, 2 room: €70, 3 room: €100, 4 room: €130, Padilla 1º 3ª: €150), 
+                            and display the results with detailed analysis.
+                        </div>
+                        
+                        <!-- Results Section -->
+                        <div class="results-section">
+                            <!-- Summary Metrics -->
+                            <div class="row mb-4">
+                                <div class="col-md-3">
+                                    <div class="metric-card text-center">
+                                        <i class="fas fa-plug fa-2x text-warning mb-2"></i>
+                                        <h4 id="totalElecCost">€0.00</h4>
+                                        <p class="text-muted mb-0">Total Electricity</p>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="metric-card text-center">
+                                        <i class="fas fa-tint fa-2x text-info mb-2"></i>
+                                        <h4 id="totalWaterCost">€0.00</h4>
+                                        <p class="text-muted mb-0">Total Water</p>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="metric-card text-center">
+                                        <i class="fas fa-exclamation-triangle fa-2x text-danger mb-2"></i>
+                                        <h4 id="totalElecExtra">€0.00</h4>
+                                        <p class="text-muted mb-0">Electricity Overages</p>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="metric-card text-center">
+                                        <i class="fas fa-exclamation-circle fa-2x text-warning mb-2"></i>
+                                        <h4 id="totalWaterExtra">€0.00</h4>
+                                        <p class="text-muted mb-0">Water Overages</p>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <!-- Tabs -->
+                            <ul class="nav nav-tabs" id="resultsTabs" role="tablist">
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link active" id="overview-tab" data-bs-toggle="tab" 
+                                            data-bs-target="#overview" type="button" role="tab">
+                                        <i class="fas fa-chart-bar"></i> Overview
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="overages-tab" data-bs-toggle="tab" 
+                                            data-bs-target="#overages" type="button" role="tab">
+                                        <i class="fas fa-exclamation-triangle"></i> Overages
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="charts-tab" data-bs-toggle="tab" 
+                                            data-bs-target="#charts" type="button" role="tab">
+                                        <i class="fas fa-chart-line"></i> Charts
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="export-tab" data-bs-toggle="tab" 
+                                            data-bs-target="#export" type="button" role="tab">
+                                        <i class="fas fa-download"></i> Export
+                                    </button>
+                                </li>
+                            </ul>
+                            
+                            <div class="tab-content" id="resultsTabContent">
+                                <!-- Overview Tab -->
+                                <div class="tab-pane fade show active" id="overview" role="tabpanel">
+                                    <div class="table-container mt-3">
+                                        <h5><i class="fas fa-list"></i> All Properties Summary</h5>
+                                        <div class="table-responsive">
+                                            <table class="table table-hover" id="overviewTable">
+                                                <thead class="table-dark">
+                                                    <tr>
+                                                        <th>Property</th>
+                                                        <th>Allowance</th>
+                                                        <th>Electricity Cost</th>
+                                                        <th>Water Cost</th>
+                                                        <th>Electricity Extra</th>
+                                                        <th>Water Extra</th>
+                                                        <th>Total Cost</th>
+                                                        <th>Total Extra</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="overviewTableBody">
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Overages Tab -->
+                                <div class="tab-pane fade" id="overages" role="tabpanel">
+                                    <div class="table-container mt-3">
+                                        <h5><i class="fas fa-exclamation-triangle"></i> Properties with Overages</h5>
+                                        <div id="overagesContent">
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Charts Tab -->
+                                <div class="tab-pane fade" id="charts" role="tabpanel">
+                                    <div class="chart-container mt-3">
+                                        <h5><i class="fas fa-chart-line"></i> Utility Usage Visualization</h5>
+                                        <canvas id="utilityChart" width="400" height="200"></canvas>
+                                    </div>
+                                </div>
+                                
+                                <!-- Export Tab -->
+                                <div class="tab-pane fade" id="export" role="tabpanel">
+                                    <div class="table-container mt-3">
+                                        <h5><i class="fas fa-download"></i> Export Results</h5>
+                                        <div class="row">
+                                            <div class="col-md-6">
+                                                <div class="d-grid">
+                                                    <button class="btn btn-success btn-lg" onclick="exportCSV()">
+                                                        <i class="fas fa-file-csv"></i> Download CSV Report
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div class="col-md-6">
+                                                <div class="d-grid">
+                                                    <button class="btn btn-primary btn-lg" onclick="exportExcel()">
+                                                        <i class="fas fa-file-excel"></i> Download Excel Report
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let currentResults = null;
+        let utilityChart = null;
+        
+        async function runCalculation() {
+            const autoSave = document.getElementById('autoSave').checked;
+            
+            // Show loading spinner
+            document.querySelector('.loading-spinner').style.display = 'block';
+            document.querySelector('.btn-calculate').disabled = true;
+            
+            try {
+                const response = await fetch('/api/calculate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        auto_save: autoSave
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    currentResults = result.data;
+                    displayResults(result.data);
+                    showSuccessAlert('Monthly calculation completed successfully!');
+                } else {
+                    showErrorAlert(`Calculation failed: ${result.error}`);
+                }
+            } catch (error) {
+                showErrorAlert(`Error: ${error.message}`);
+            } finally {
+                // Hide loading spinner
+                document.querySelector('.loading-spinner').style.display = 'none';
+                document.querySelector('.btn-calculate').disabled = false;
+            }
+        }
+        
+        function displayResults(data) {
+            // Update summary metrics
+            document.getElementById('totalElecCost').textContent = `€${data.summary.total_electricity_cost.toFixed(2)}`;
+            document.getElementById('totalWaterCost').textContent = `€${data.summary.total_water_cost.toFixed(2)}`;
+            document.getElementById('totalElecExtra').textContent = `€${data.summary.total_electricity_extra.toFixed(2)}`;
+            document.getElementById('totalWaterExtra').textContent = `€${data.summary.total_water_extra.toFixed(2)}`;
+            
+            // Populate overview table
+            const tbody = document.getElementById('overviewTableBody');
+            tbody.innerHTML = '';
+            
+            data.properties.forEach(property => {
+                const totalCost = property.elec_cost + property.water_cost;
+                const totalExtra = property.elec_extra + property.water_extra;
+                const hasOverages = totalExtra > 0;
+                
+                const row = document.createElement('tr');
+                if (hasOverages) row.className = 'overage-row';
+                
+                row.innerHTML = `
+                    <td><strong>${property.name}</strong></td>
+                    <td><span class="badge bg-primary">€${property.allowance.toFixed(0)}</span></td>
+                    <td>€${property.elec_cost.toFixed(2)}</td>
+                    <td>€${property.water_cost.toFixed(2)}</td>
+                    <td class="${property.elec_extra > 0 ? 'text-danger' : ''}">€${property.elec_extra.toFixed(2)}</td>
+                    <td class="${property.water_extra > 0 ? 'text-danger' : ''}">€${property.water_extra.toFixed(2)}</td>
+                    <td><strong>€${totalCost.toFixed(2)}</strong></td>
+                    <td class="${totalExtra > 0 ? 'text-danger' : ''}"><strong>€${totalExtra.toFixed(2)}</strong></td>
+                `;
+                
+                tbody.appendChild(row);
+            });
+            
+            // Populate overages section
+            const overages = data.properties.filter(p => p.elec_extra > 0 || p.water_extra > 0);
+            const overagesContent = document.getElementById('overagesContent');
+            
+            if (overages.length === 0) {
+                overagesContent.innerHTML = `
+                    <div class="alert alert-success">
+                        <i class="fas fa-check-circle"></i> No properties exceeded their allowances this month!
+                    </div>
+                `;
+            } else {
+                let overagesHtml = `
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead class="table-warning">
+                                <tr>
+                                    <th>Property</th>
+                                    <th>Electricity Cost</th>
+                                    <th>Water Cost</th>
+                                    <th>Electricity Extra</th>
+                                    <th>Water Extra</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                `;
+                
+                overages.forEach(property => {
+                    overagesHtml += `
+                        <tr>
+                            <td><strong>${property.name}</strong></td>
+                            <td>€${property.elec_cost.toFixed(2)}</td>
+                            <td>€${property.water_cost.toFixed(2)}</td>
+                            <td class="text-danger">€${property.elec_extra.toFixed(2)}</td>
+                            <td class="text-danger">€${property.water_extra.toFixed(2)}</td>
+                        </tr>
+                    `;
+                });
+                
+                overagesHtml += `
+                            </tbody>
+                        </table>
+                    </div>
+                `;
+                
+                overagesContent.innerHTML = overagesHtml;
+            }
+            
+            // Show results section
+            document.querySelector('.results-section').style.display = 'block';
+            
+            // Initialize chart when charts tab is clicked
+            document.getElementById('charts-tab').addEventListener('click', function() {
+                if (utilityChart) utilityChart.destroy();
+                createChart(data);
+            });
+        }
+        
+        function createChart(data) {
+            const ctx = document.getElementById('utilityChart').getContext('2d');
+            
+            const labels = data.properties.map(p => p.name);
+            const elecCosts = data.properties.map(p => p.elec_cost);
+            const waterCosts = data.properties.map(p => p.water_cost);
+            const elecExtras = data.properties.map(p => p.elec_extra);
+            const waterExtras = data.properties.map(p => p.water_extra);
+            
+            utilityChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Electricity Cost',
+                            data: elecCosts,
+                            backgroundColor: '#ff9800',
+                            borderColor: '#f57c00',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Water Cost',
+                            data: waterCosts,
+                            backgroundColor: '#2196f3',
+                            borderColor: '#1976d2',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Electricity Extra',
+                            data: elecExtras,
+                            backgroundColor: '#f44336',
+                            borderColor: '#d32f2f',
+                            borderWidth: 1
+                        },
+                        {
+                            label: 'Water Extra',
+                            data: waterExtras,
+                            backgroundColor: '#e91e63',
+                            borderColor: '#c2185b',
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Cost (€)'
+                            }
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Monthly Utility Analysis'
+                        }
+                    }
+                }
+            });
+        }
+        
+        async function exportCSV() {
+            if (!currentResults) return;
+            
+            try {
+                const response = await fetch('/api/export/csv');
+                const result = await response.json();
+                
+                const blob = new Blob([result.csv_data], { type: 'text/csv' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `utility_report_${new Date().toISOString().split('T')[0]}.csv`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+            } catch (error) {
+                showErrorAlert(`Export failed: ${error.message}`);
+            }
+        }
+        
+        async function exportExcel() {
+            if (!currentResults) return;
+            
+            try {
+                const response = await fetch('/api/export/excel');
+                const result = await response.json();
+                
+                // Convert hex back to bytes
+                const bytes = new Uint8Array(result.excel_data.match(/.{1,2}/g).map(byte => parseInt(byte, 16)));
+                const blob = new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `utility_report_${new Date().toISOString().split('T')[0]}.xlsx`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                window.URL.revokeObjectURL(url);
+            } catch (error) {
+                showErrorAlert(`Export failed: ${error.message}`);
+            }
+        }
+        
+        function showSuccessAlert(message) {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = 'alert alert-success alert-custom alert-dismissible fade show';
+            alertDiv.innerHTML = `
+                <i class="fas fa-check-circle"></i> ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            
+            const container = document.querySelector('.p-4');
+            container.insertBefore(alertDiv, container.firstChild);
+            
+            setTimeout(() => {
+                if (alertDiv.parentNode) {
+                    alertDiv.remove();
+                }
+            }, 5000);
+        }
+        
+        function showErrorAlert(message) {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = 'alert alert-danger alert-custom alert-dismissible fade show';
+            alertDiv.innerHTML = `
+                <i class="fas fa-exclamation-circle"></i> ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            
+            const container = document.querySelector('.p-4');
+            container.insertBefore(alertDiv, container.firstChild);
+            
+            setTimeout(() => {
+                if (alertDiv.parentNode) {
+                    alertDiv.remove();
+                }
+            }, 5000);
+        }
+    </script>
+</body>
+</html>
+
