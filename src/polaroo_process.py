@@ -560,8 +560,16 @@ def _read_polaro_file(path: str | Path, *, delimiter: str, decimal: str) -> pd.D
             header_row = df.iloc[header_index]
             print(f"🔍 [EXCEL] Header row values: {list(header_row)}")
             
-            # Set column names from the header row
-            df.columns = header_row
+            # Clean and set column names from the header row
+            clean_headers = []
+            for i, val in enumerate(header_row):
+                if pd.isna(val) or str(val).strip() == '':
+                    clean_headers.append(f'Column_{i}')
+                else:
+                    clean_headers.append(str(val).strip())
+            
+            print(f"🔍 [EXCEL] Clean headers: {clean_headers}")
+            df.columns = clean_headers
             
             # Delete everything before and including the header row
             df = df.iloc[header_index + 1:].reset_index(drop=True)
@@ -684,6 +692,10 @@ def process_usage(
     if name_column is None:
         print(f"❌ [DEBUG] No name column found! Available columns: {list(usage_df.columns)}")
         raise ValueError(f"No 'name' column found in DataFrame. Available columns: {list(usage_df.columns)}")
+    
+    # Debug: Show what's actually in the name column
+    print(f"🔍 [DEBUG] Name column '{name_column}' contains {len(usage_df)} values")
+    print(f"🔍 [DEBUG] First 10 values in name column: {list(usage_df[name_column].head(10))}")
     
     for name in usage_df[name_column].astype(str):
         bkey, fcode = _parse_name_dataset(name)
