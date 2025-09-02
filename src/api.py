@@ -29,7 +29,7 @@ from pathlib import Path
 import pandas as pd
 import io
 
-from polaroo_scrape import download_report_sync
+from polaroo_scrape import download_report_sync, download_report_bytes
 from polaroo_process import process_usage, USER_ADDRESSES
 from load_supabase import upload_raw, upsert_monthly
 
@@ -106,66 +106,108 @@ async def calculate_monthly_report(request: CalculationRequest):
     4. Returns processed data for frontend display
     """
     try:
-        # For now, return test data to verify the frontend works
-        # TODO: Re-enable actual scraping once we confirm the frontend works
+        print("🚀 [API] Starting monthly calculation request...")
         
-        # Create test data with room-based allowances
-        test_properties = [
-            {
-                "name": "Aribau 1º 1ª",
-                "elec_cost": 85.0,
-                "water_cost": 45.0,
-                "elec_extra": 15.0,  # 85 - 70 (2 room allowance)
-                "water_extra": 0.0,   # 45 - 70 (under allowance)
-                "allowance": 70.0
-            },
-            {
-                "name": "Aribau 126-128 3-1", 
-                "elec_cost": 120.0,
-                "water_cost": 80.0,
-                "elec_extra": 20.0,   # 120 - 100 (3 room allowance)
-                "water_extra": 0.0,   # 80 - 100 (under allowance)
-                "allowance": 100.0
-            },
-            {
-                "name": "Padilla 1",
-                "elec_cost": 180.0,
-                "water_cost": 90.0,
-                "elec_extra": 30.0,   # 180 - 150 (special allowance)
-                "water_extra": 0.0,   # 90 - 150 (under allowance)
-                "allowance": 150.0
-            },
-            {
-                "name": "Aribau Escalera",
-                "elec_cost": 40.0,
-                "water_cost": 30.0,
-                "elec_extra": 0.0,    # 40 - 50 (under allowance)
-                "water_extra": 0.0,   # 30 - 50 (under allowance)
-                "allowance": 50.0
+        # Step 1: Download report from Polaroo
+        print("📥 [API] Step 1/3: Downloading report from Polaroo...")
+        file_bytes, filename = await download_report_bytes()
+        print(f"✅ [API] Report downloaded: {filename} ({len(file_bytes)} bytes)")
+        
+        # Step 2: Archive to Supabase (if requested)
+        if request.auto_save:
+            print("☁️ [API] Step 2/3: Archiving report to Supabase...")
+            try:
+                # Ensure we have bytes, not BytesIO
+                if hasattr(file_bytes, 'read'):
+                    file_bytes = file_bytes.read()
+                upload_raw(date.today(), file_bytes, filename)
+                print("✅ [API] Report archived successfully")
+            except Exception as e:
+                print(f"⚠️ [API] Warning: Failed to archive report: {e}")
+        
+        # Step 3: Process data and calculate excess charges
+        print("🧮 [API] Step 3/3: Processing data and calculating excess charges...")
+        
+        # Create temporary file for processing
+        import tempfile
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx" if filename.endswith('.xlsx') else ".csv") as tmp:
+            # Ensure we write bytes
+            if hasattr(file_bytes, 'read'):
+                file_bytes.seek(0)
+                tmp.write(file_bytes.read())
+            else:
+                tmp.write(file_bytes)
+            tmp_path = tmp.name
+        
+        try:
+            print(f"📊 [API] Processing file: {tmp_path}")
+            if filename.endswith('.xlsx'):
+                df_raw = pd.read_excel(tmp_path, engine='openpyxl')
+                print(f"🔍 [API] Excel columns found: {list(df_raw.columns)}")
+                print(f"🔍 [API] First few rows:")
+                print(df_raw.head().to_string())
+            
+            df = process_usage(tmp_path, allowances=None)
+            print(f"✅ [API] Data processed: {len(df)} properties found")
+            print(f"🔍 [API] Processed DataFrame columns: {list(df.columns)}")
+            
+            properties = []
+            for _, row in df.iterrows():
+                try:
+                    properties.append({
+                        "name": str(row.get('Property', row.get('unit', 'Unknown'))),
+                        "elec_cost": float(row.get('Electricity Cost', 0)),
+                        "water_cost": float(row.get('Water Cost', 0)),
+                        "elec_extra": 0.0,  # Not used in new structure
+                        "water_extra": 0.0,  # Not used in new structure
+                        "allowance": float(row.get('Allowance', 0))
+                    })
+                except Exception as e:
+                    print(f"⚠️ [API] Error processing row: {e}")
+                    print(f"🔍 [API] Row data: {dict(row)}")
+            
+            results_data = {
+                "properties": properties,
+                "summary": {
+                    "total_properties": len(properties),
+                    "total_electricity_cost": sum(p["elec_cost"] for p in properties),
+                    "total_water_cost": sum(p["water_cost"] for p in properties),
+                    "total_electricity_extra": sum(p["elec_extra"] for p in properties),
+                    "total_water_extra": sum(p["water_extra"] for p in properties),
+                    "properties_with_elec_overages": len([p for p in properties if p["elec_extra"] > 0]),
+                    "properties_with_water_overages": len([p for p in properties if p["water_extra"] > 0]),
+                    "calculation_date": datetime.now().isoformat(),
+                    "allowance_system": "room-based"
+                }
             }
-        ]
-        
-        results_data = {
-            "properties": test_properties,
-            "summary": {
-                "total_properties": len(test_properties),
-                "total_electricity_cost": sum(p["elec_cost"] for p in test_properties),
-                "total_water_cost": sum(p["water_cost"] for p in test_properties),
-                "total_electricity_extra": sum(p["elec_extra"] for p in test_properties),
-                "total_water_extra": sum(p["water_extra"] for p in test_properties),
-                "properties_with_elec_overages": len([p for p in test_properties if p["elec_extra"] > 0]),
-                "properties_with_water_overages": len([p for p in test_properties if p["water_extra"] > 0]),
-                "calculation_date": datetime.now().isoformat(),
-                "allowance_system": "room-based"
-            }
-        }
-        
-        # Store results globally (in production, use Redis or database)
-        calculation_results["latest"] = results_data
+            
+            # Store results globally (in production, use Redis or database)
+            calculation_results["latest"] = results_data
+            
+            print(f"✅ [API] Calculation completed successfully! Processed {len(properties)} properties")
+            print(f"📊 [API] Summary: {len([p for p in properties if p['elec_extra'] > 0])} elec overages, {len([p for p in properties if p['water_extra'] > 0])} water overages")
+            
+        except Exception as e:
+            print(f"❌ [API] Calculation failed: {e}")
+            import traceback
+            traceback.print_exc()
+            return CalculationResponse(
+                success=False,
+                message="Calculation failed",
+                error=str(e)
+            )
+        finally:
+            # Clean up temporary file
+            import os
+            try:
+                os.unlink(tmp_path)
+                print("🧹 [API] Temporary file cleaned up")
+            except:
+                pass
         
         return CalculationResponse(
             success=True,
-            message=f"Monthly calculation completed successfully using room-based allowances (TEST DATA)",
+            message=f"Monthly calculation completed successfully using room-based allowances",
             data=results_data
         )
         
