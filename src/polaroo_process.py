@@ -535,59 +535,22 @@ def _read_polaro_file(path: str | Path, *, delimiter: str, decimal: str) -> pd.D
             # Read local Excel file
             df = pd.read_excel(path, engine='openpyxl')
         
-        # Smart detection of property details table
-        # Look for the table that contains property-specific data
+        # Simple detection: scan column A for 'name' and use that row as header
         header_index = None
-        best_candidate = None
-        best_score = 0
+        
+        print(f"🔍 [EXCEL] Scanning column A for 'name' in {len(df)} rows...")
         
         for idx, row in df.iterrows():
-            # Convert row to list of strings for analysis
-            row_values = [str(cell).lower().strip() for cell in row if pd.notna(cell)]
-            if not row_values:
-                continue
-                
-            # Check if this row contains 'name' anywhere (not just first column)
-            if 'name' in row_values:
-                # Calculate a score based on how many property-related columns we find
-                property_keywords = ['electricity', 'water', 'gas', 'cost', 'provider', 'asset', 'room', 'bath', 'contracts', 'consumption']
-                score = 0
-                
-                # Count property-related keywords in the row
-                row_text = ' '.join(row_values)
-                for keyword in property_keywords:
-                    if keyword in row_text:
-                        score += 1
-                
-                # Bonus points for having multiple columns (indicates detailed property data)
-                if len(row_values) > 10:
-                    score += 2
-                
-                # Bonus points for having cost-related columns
-                if any('cost' in val for val in row_values):
-                    score += 1
-                
-                # Bonus points for having 'name' as first column
-                if row_values[0] == 'name':
-                    score += 2
-                
-                # Bonus points for having 'contracts' (indicates property details)
-                if 'contracts' in row_values:
-                    score += 1
-                
-                if score > best_score:
-                    best_score = score
-                    best_candidate = idx
+            # Check if column A (first column) contains 'name'
+            first_cell = str(row.iloc[0]).lower().strip() if len(row) > 0 and pd.notna(row.iloc[0]) else ""
+            if first_cell == 'name':
+                header_index = idx
+                print(f"✅ [EXCEL] Found 'name' in column A at row {idx}")
+                break
         
-        # Use the best candidate if we found one with a good score
-        if best_candidate is not None and best_score >= 2:
-            header_index = best_candidate
-        else:
-            # Fallback: look for any row with 'name' column
-            for idx, row in df.iterrows():
-                if any(str(cell).lower().strip() == 'name' for cell in row if pd.notna(cell)):
-                    header_index = idx
-                    break
+        if header_index is None:
+            print(f"⚠️ [EXCEL] No 'name' found in column A, using default header (row 0)")
+            header_index = 0
         
         if header_index is not None:
             # Use the found row as header and skip previous rows
