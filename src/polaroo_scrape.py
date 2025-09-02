@@ -238,8 +238,7 @@ async def download_report_bytes() -> tuple[bytes, str]:
     async with async_playwright() as p:
         context = await p.chromium.launch_persistent_context(
             user_data_dir=user_data,
-            channel="chrome",
-            headless=False,  # popup so you can watch it
+            headless=True,  # headless for production
             slow_mo=0,       # no manual Resume needed
             viewport={"width": 1366, "height": 900},
             args=["--disable-gpu", "--no-sandbox", "--disable-blink-features=AutomationControlled"],
