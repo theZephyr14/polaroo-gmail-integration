@@ -535,16 +535,58 @@ def _read_polaro_file(path: str | Path, *, delimiter: str, decimal: str) -> pd.D
             # Read local Excel file
             df = pd.read_excel(path, engine='openpyxl')
         
-        # Look for header row starting with 'name' (case insensitive)
+        # Smart detection of property details table
+        # Look for the table that contains property-specific data
         header_index = None
+        best_candidate = None
+        best_score = 0
+        
         for idx, row in df.iterrows():
-            if any(str(cell).lower().startswith('name') for cell in row if pd.notna(cell)):
-                header_index = idx
-                break
+            # Convert row to list of strings for analysis
+            row_values = [str(cell).lower().strip() for cell in row if pd.notna(cell)]
+            if not row_values:
+                continue
+                
+            # Check if this row has 'name' as the first column (exact match)
+            if row_values[0] == 'name':
+                # Calculate a score based on how many property-related columns we find
+                property_keywords = ['electricity', 'water', 'gas', 'cost', 'provider', 'asset', 'room', 'bath']
+                score = 0
+                
+                # Count property-related keywords in the row
+                row_text = ' '.join(row_values)
+                for keyword in property_keywords:
+                    if keyword in row_text:
+                        score += 1
+                
+                # Bonus points for having multiple columns (indicates detailed property data)
+                if len(row_values) > 10:
+                    score += 2
+                
+                # Bonus points for having cost-related columns
+                if any('cost' in val for val in row_values):
+                    score += 1
+                
+                if score > best_score:
+                    best_score = score
+                    best_candidate = idx
+        
+        # Use the best candidate if we found one with a good score
+        if best_candidate is not None and best_score >= 3:
+            header_index = best_candidate
+        else:
+            # Fallback: look for any row with 'name' column
+            for idx, row in df.iterrows():
+                if any(str(cell).lower().strip() == 'name' for cell in row if pd.notna(cell)):
+                    header_index = idx
+                    break
         
         if header_index is not None:
             # Use the found row as header and skip previous rows
-            df = pd.read_excel(path, engine='openpyxl', header=header_index)
+            if path_str.startswith(('http://', 'https://')):
+                df = pd.read_excel(io.BytesIO(excel_data), engine='openpyxl', header=header_index)
+            else:
+                df = pd.read_excel(path, engine='openpyxl', header=header_index)
         
         return df
     
