@@ -113,7 +113,8 @@ async def _ensure_logged_in(page) -> None:
         print("✅ [LOGIN] Already logged in, redirected to dashboard")
 
     await _wait_for_dashboard(page)
-    await _wait(page, "post-login dashboard settle")
+    print("⏳ [WAIT] post-login dashboard settle … 10000ms")
+    await page.wait_for_timeout(10_000)
 
 async def _open_report_from_sidebar(page) -> None:
     """Click the 'Report' item in the left sidebar to open the Report page."""
