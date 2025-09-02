@@ -14,12 +14,18 @@ RUN apt-get update && apt-get install -y \
     && apt-get update \
     && apt-get install -y \
     google-chrome-stable \
-    fonts-ipafont-gothic \
-    fonts-wqy-zenhei \
-    fonts-thai-tlwg \
-    fonts-kacst \
+    fonts-liberation \
+    fonts-dejavu-core \
     fonts-freefont-ttf \
     libxss1 \
+    libnss3 \
+    libxrandr2 \
+    libasound2 \
+    libpangocairo-1.0-0 \
+    libatk1.0-0 \
+    libcairo-gobject2 \
+    libgtk-3-0 \
+    libgdk-pixbuf2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first for better caching
