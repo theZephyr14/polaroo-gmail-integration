@@ -1,6 +1,5 @@
 FROM python:3.10-slim
 
-# Force rebuild - cache buster
 # Set working directory
 WORKDIR /app
 
@@ -49,7 +48,7 @@ RUN mkdir -p src/static
 EXPOSE 8000
 
 # Set environment variables
-ENV PYTHONPATH=/app/src
+ENV PYTHONPATH=/app
 ENV PORT=8000
 
 # Health check
