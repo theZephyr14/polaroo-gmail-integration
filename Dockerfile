@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/playwright/python:v1.40.0-jammy
+FROM mcr.microsoft.com/playwright/python:v1.54.0-jammy
 
 # Set working directory
 WORKDIR /app
