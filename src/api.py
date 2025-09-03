@@ -72,7 +72,7 @@ calculation_results = {}
 @app.get("/")
 async def root():
     """Serve the main application."""
-    return FileResponse("static/index.html")
+    return FileResponse("src/static/index.html")
 
 @app.get("/api/health")
 async def health_check():
