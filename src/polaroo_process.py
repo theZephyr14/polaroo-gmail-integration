@@ -122,14 +122,90 @@ ADDRESS_ROOM_MAPPING = {
     "Llull 250 Pral 5": 2,
     "Llull 250 1-1": 2,
     "Llull 250 1-3": 2,
+    "Llull 250 1-4": 2,
+    "Llull 250 1-5": 2,
+    "Llull 250 1-6": 2,
+    "Llull 250 2-3": 2,
+    "Llull 250 2-5": 2,
+    "Llull 250 2-6": 2,
+    "Llull 250 3-2": 2,
+    "Llull 250 3-4": 2,
+    "Llull 250 3-5": 2,
+    "Llull 250 3-6": 2,
+    "Llull 250 4-3": 2,
+    "Llull 250 4-5": 2,
+    "Llull 250 5-1": 2,
+    "Llull 250 5-2": 2,
+    "Llull 250 5-3": 2,
+    "Llull 250 5-4": 2,
+    "Llull 250 5-5": 2,
     
     # Padilla properties - Updated from Excel data
     "Padilla 1º 1ª": 3,  # Excel shows 3 rooms
     "Padilla 1º 2ª": 3,  # Excel shows 3 rooms
     "Padilla 1º 3ª": 3,  # Excel shows 3 rooms, but special limit €150 applies
+    "Padilla Entl 1ª": 1,  # From book1 image
+    "Padilla Entl 2ª": 1,  # From book1 image
+    "Padilla Entl 4ª": 1,  # From book1 image
+    "Padilla Pral 2ª": 1,  # From book1 image
+    "Padilla Pral 3ª": 1,  # From book1 image
+    "Padilla 2º 1ª": 1,  # From book1 image
+    "Padilla 2-2": 1,  # From book1 image
+    "Padilla 2º 3ª": 1,  # From book1 image
+    "Padilla 2-4": 1,  # From book1 image
+    "Padilla 3º 2ª": 1,  # From book1 image
+    "Padilla 3º 3ª": 1,  # From book1 image
+    "Padilla 4º 2ª": 1,  # From book1 image
+    "Padilla 4º 3ª": 1,  # From book1 image
+    "Padilla 5º 1ª": 1,  # From book1 image
+    "Padilla 5º 2ª": 1,  # From book1 image
+    
+    # Psg Sant Joan properties - From book1 image
+    "Psg Sant Joan Entl 1ª": 1,
+    "Psg Sant Joan Entl 2ª": 1,
+    "Psg Sant Joan Pral 1ª": 1,
+    "Psg Sant Joan Pral 2ª": 1,
+    "Psg Sant Joan 1º 1ª": 1,
+    "Pg Sant Joan 161 2-1": 1,
+    "Pg Sant Joan 161 2-2": 1,
+    "Psg Sant Joan 3º 2ª": 1,
+    "Pg Sant Joan 4-1": 1,
+    "Psg Sant Joan 4º 2ª": 1,
+    "Psg Sant Joan 5º 2ª": 1,
+    
+    # Providencia properties - From book1 image
+    "Providencia Bajs 2ª": 2,
+    "Providencia Pral 2ª": 2,
+    "Providencia 1º 1ª": 1,
+    "Providencia 1º 2ª": 1,
+    "Providencia 2º 1ª": 1,
+    "Providencia 2º 2ª": 1,
+    "Providencia 3º 2ª": 1,
+    "Providencia 4º 2ª": 1,
+    
+    # Sardenya properties - From book1 image
+    "Sardenya 1º 2ª": 2,
+    "Sardenya 3º 2ª": 2,
+    "Sardenya 4º 2ª": 2,
+    "Sardenya 5º 2ª": 2,
+    "Sardenya Pral": 1,
+    
+    # Torrent Olla properties - From book1 image
+    "Torrent Olla Pral 1ª": 1,
+    "Torrent Olla 1º 1ª": 1,
+    "Torrent Olla 1º 2ª": 1,
+    "Torrent Olla 2º 1ª": 1,
+    "Torrent Olla 2º 2ª": 1,
+    "Torrent Olla 3º 2ª": 1,
+    "Torrent Olla Ático": 1,
+    
+    # Valencia properties - From book1 image
+    "Valencia Pral 1ª": 1,
+    "Valencia 2º 1ª": 1,
 }
 
 USER_ADDRESSES: list[str] = [
+    # Aribau properties (10)
     "Aribau 1º 1ª",
     "Aribau 1º 2ª",
     "Aribau 2º 1º",
@@ -140,10 +216,12 @@ USER_ADDRESSES: list[str] = [
     "Aribau 4º 1ª",
     "Aribau 4º 1ª B",
     "Aribau 4º 2ª",
-    "Aribau Escalera",
+    
+    # Bisbe Laguarda properties (2)
     "Bisbe Laguarda 14, Pral-2",
     "Bisbe Laguarda 14, 2-2",
 
+    # Blasco de Garay properties (10)
     "Blasco de Garay Pral 1ª",
     "Blasco de Garay Pral 2ª",
     "Blasco de Garay 1º 1ª",
@@ -155,19 +233,96 @@ USER_ADDRESSES: list[str] = [
     "Blasco de Garay 4º 1ª",
     "Blasco de Garay 5º 1ª",
 
+    # Comte Borrell properties (3)
     "Comte Borrell Pral 1ª",
     "Comte Borrell 5º 1ª",
     "Comte Borrell 5º 2ª",
 
+    # Llull 250 properties (21)
     "Llull 250 Pral 3",
     "Llull 250 Pral 5",
     "Llull 250 1-1",
     "Llull 250 1-3",
+    "Llull 250 1-4",
+    "Llull 250 1-5",
+    "Llull 250 1-6",
+    "Llull 250 2-3",
+    "Llull 250 2-5",
+    "Llull 250 2-6",
+    "Llull 250 3-2",
+    "Llull 250 3-4",
+    "Llull 250 3-5",
+    "Llull 250 3-6",
+    "Llull 250 4-3",
+    "Llull 250 4-5",
+    "Llull 250 5-1",
+    "Llull 250 5-2",
+    "Llull 250 5-3",
+    "Llull 250 5-4",
+    "Llull 250 5-5",
     
-    # Padilla properties
+    # Padilla properties (18)
+    "Padilla Entl 1ª",
+    "Padilla Entl 2ª",
+    "Padilla Entl 4ª",
+    "Padilla Pral 2ª",
+    "Padilla Pral 3ª",
     "Padilla 1º 1ª",
-    "Padilla 1º 2ª", 
+    "Padilla 1º 2ª",
     "Padilla 1º 3ª",
+    "Padilla 2º 1ª",
+    "Padilla 2-2",
+    "Padilla 2º 3ª",
+    "Padilla 2-4",
+    "Padilla 3º 2ª",
+    "Padilla 3º 3ª",
+    "Padilla 4º 2ª",
+    "Padilla 4º 3ª",
+    "Padilla 5º 1ª",
+    "Padilla 5º 2ª",
+    
+    # Psg Sant Joan properties (11)
+    "Psg Sant Joan Entl 1ª",
+    "Psg Sant Joan Entl 2ª",
+    "Psg Sant Joan Pral 1ª",
+    "Psg Sant Joan Pral 2ª",
+    "Psg Sant Joan 1º 1ª",
+    "Pg Sant Joan 161 2-1",
+    "Pg Sant Joan 161 2-2",
+    "Psg Sant Joan 3º 2ª",
+    "Pg Sant Joan 4-1",
+    "Psg Sant Joan 4º 2ª",
+    "Psg Sant Joan 5º 2ª",
+    
+    # Providencia properties (8)
+    "Providencia Bajs 2ª",
+    "Providencia Pral 2ª",
+    "Providencia 1º 1ª",
+    "Providencia 1º 2ª",
+    "Providencia 2º 1ª",
+    "Providencia 2º 2ª",
+    "Providencia 3º 2ª",
+    "Providencia 4º 2ª",
+    
+    # Sardenya properties (5)
+    "Sardenya 1º 2ª",
+    "Sardenya 3º 2ª",
+    "Sardenya 4º 2ª",
+    "Sardenya 5º 2ª",
+    "Sardenya Pral",
+    
+    # Torrent Olla properties (7)
+    "Torrent Olla Pral 1ª",
+    "Torrent Olla 1º 1ª",
+    "Torrent Olla 1º 2ª",
+    "Torrent Olla 2º 1ª",
+    "Torrent Olla 2º 2ª",
+    "Torrent Olla 3º 2ª",
+    "Torrent Olla Ático",
+    
+    # Valencia properties (2)
+    "Valencia Pral 1ª",
+    "Valencia 2º 1ª",
 ]
 
 def get_allowance_for_address(address: str) -> float:
@@ -748,7 +903,6 @@ def process_usage(
     
     for _, row in filtered_df.iterrows():
         unit_name = row[name_column]  # Use the detected name column
-        print(f"🔍 [DEBUG] Processing property: {unit_name}")
         
         # Get allowance for this specific address
         allowance = get_allowance_for_address(unit_name)
@@ -757,20 +911,16 @@ def process_usage(
         # Calculate costs
         elec_cost = row.get('electricityCost', 0.0)
         water_cost = row.get('waterCost', 0.0)
-        print(f"🔍 [DEBUG] Costs for {unit_name}: elec={elec_cost}, water={water_cost}")
         
         total_cost = elec_cost + water_cost
         
-        # Calculate individual extras (what frontend expects)
-        elec_extra = max(0.0, elec_cost - allowance)
-        water_extra = max(0.0, water_cost - allowance)
-        total_extra = elec_extra + water_extra  # Combined overage
-        print(f"🔍 [DEBUG] Extras for {unit_name}: elec_extra={elec_extra}, water_extra={water_extra}, total_extra={total_extra}")
+        # Calculate total extra only (when combined cost exceeds allowance)
+        total_extra = max(0.0, total_cost - allowance)
         
         total_costs.append(total_cost)
         total_extras.append(total_extra)
-        elec_extras.append(elec_extra)
-        water_extras.append(water_extra)
+        elec_extras.append(0.0)  # No individual elec extra
+        water_extras.append(0.0)  # No individual water extra
     
     filtered_df['allowance'] = allowances_list
     filtered_df['total_cost'] = total_costs
@@ -809,6 +959,12 @@ def process_usage(
             print(f"  {col}: {list(filtered_df[col].head(3))}")
         else:
             print(f"  {col}: COLUMN NOT FOUND")
+    
+    # Debug: Show the actual Property column values
+    if 'Property' in filtered_df.columns:
+        print(f"🔍 [DEBUG] Property column values (first 5): {list(filtered_df['Property'].head(5))}")
+    else:
+        print(f"❌ [DEBUG] Property column not found!")
     
     # Select final columns in the exact order requested
     final_columns = [
