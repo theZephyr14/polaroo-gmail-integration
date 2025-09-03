@@ -743,6 +743,8 @@ def process_usage(
     allowances_list = []
     total_costs = []
     total_extras = []
+    elec_extras = []
+    water_extras = []
     
     for _, row in filtered_df.iterrows():
         unit_name = row[name_column]  # Use the detected name column
@@ -759,16 +761,22 @@ def process_usage(
         
         total_cost = elec_cost + water_cost
         
-        # Calculate total extra (combined overage)
-        total_extra = max(0.0, total_cost - allowance)
-        print(f"🔍 [DEBUG] Total for {unit_name}: cost={total_cost}, allowance={allowance}, extra={total_extra}")
+        # Calculate individual extras (what frontend expects)
+        elec_extra = max(0.0, elec_cost - allowance)
+        water_extra = max(0.0, water_cost - allowance)
+        total_extra = elec_extra + water_extra  # Combined overage
+        print(f"🔍 [DEBUG] Extras for {unit_name}: elec_extra={elec_extra}, water_extra={water_extra}, total_extra={total_extra}")
         
         total_costs.append(total_cost)
         total_extras.append(total_extra)
+        elec_extras.append(elec_extra)
+        water_extras.append(water_extra)
     
     filtered_df['allowance'] = allowances_list
     filtered_df['total_cost'] = total_costs
     filtered_df['total_extra'] = total_extras
+    filtered_df['elec_extra'] = elec_extras
+    filtered_df['water_extra'] = water_extras
 
     # Rename columns to user‑friendly names
     rename_map = {
@@ -795,7 +803,7 @@ def process_usage(
     print(f"🔍 [DEBUG] DataFrame before final selection has {len(filtered_df)} rows")
     print(f"🔍 [DEBUG] Available columns: {list(filtered_df.columns)}")
     print(f"🔍 [DEBUG] First 3 rows of key columns:")
-    key_cols = ['Property', 'Allowance', 'Electricity Cost', 'Water Cost', 'Total Cost', 'Total Extra']
+    key_cols = ['Property', 'Allowance', 'Electricity Cost', 'Water Cost', 'Total Cost', 'Total Extra', 'elec_extra', 'water_extra']
     for col in key_cols:
         if col in filtered_df.columns:
             print(f"  {col}: {list(filtered_df[col].head(3))}")
@@ -810,6 +818,8 @@ def process_usage(
         'Water Cost',
         'Total Cost',
         'Total Extra',
+        'elec_extra',
+        'water_extra',
     ]
     final_df = filtered_df[final_columns].copy()
     

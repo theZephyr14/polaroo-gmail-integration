@@ -158,8 +158,8 @@ async def calculate_monthly_report(request: CalculationRequest):
                         "name": str(row.get('Property', row.get('unit', 'Unknown'))),
                         "elec_cost": float(row.get('Electricity Cost', 0)),
                         "water_cost": float(row.get('Water Cost', 0)),
-                        "elec_extra": max(0.0, float(row.get('Electricity Cost', 0)) - float(row.get('Allowance', 0))),
-                        "water_extra": max(0.0, float(row.get('Water Cost', 0)) - float(row.get('Allowance', 0))),
+                        "elec_extra": float(row.get('elec_extra', 0)),
+                        "water_extra": float(row.get('water_extra', 0)),
                         "allowance": float(row.get('Allowance', 0))
                     })
                 except Exception as e:
@@ -190,7 +190,10 @@ async def calculate_monthly_report(request: CalculationRequest):
             # Debug: Show what we're sending to frontend
             print(f"🔍 [API] First 3 properties being sent to frontend:")
             for i, prop in enumerate(properties[:3]):
-                print(f"  {i+1}. {prop}")n                print(f"    - elec_cost: {prop['elec_cost']}, water_cost: {prop['water_cost']}")n                print(f"    - elec_extra: {prop['elec_extra']}, water_extra: {prop['water_extra']}")n                print(f"    - allowance: {prop['allowance']}")
+                print(f"  {i+1}. {prop}")
+                print(f"    - elec_cost: {prop['elec_cost']}, water_cost: {prop['water_cost']}")
+                print(f"    - elec_extra: {prop['elec_extra']}, water_extra: {prop['water_extra']}")
+                print(f"    - allowance: {prop['allowance']}")
             
         except Exception as e:
             print(f"❌ [API] Calculation failed: {e}")
