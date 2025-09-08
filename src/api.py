@@ -30,7 +30,7 @@ import pandas as pd
 import io
 
 from src.polaroo_scrape import download_report_sync, download_report_bytes
-from src.polaroo_process import process_usage, USER_ADDRESSES
+# Removed old polaroo_process import - using inline definitions now
 from src.load_supabase import upload_raw, upsert_monthly
 from src.email_system import EmailGenerator, InvoiceDownloader, EmailSender, TemplateManager
 from src.pdf_storage import pdf_storage
@@ -179,30 +179,48 @@ async def calculate_monthly_report(request: CalculationRequest):
                 print(f"🔍 [API] First few rows:")
                 print(df_raw.head().to_string())
             
-            df = process_usage(tmp_path, allowances=None, delimiter=';', decimal=',')
+            # Process the Excel data directly (replacing process_usage function)
+            df = pd.read_excel(tmp_path)
             print(f"✅ [API] Data processed: {len(df)} properties found")
             print(f"🔍 [API] Processed DataFrame columns: {list(df.columns)}")
             
+            # Load Book1.xlsx for filtering
+            book1_property_names = set()
+            try:
+                book1_df = pd.read_excel("Book1.xlsx")
+                if 'name' in book1_df.columns:
+                    book1_property_names = set(book1_df['name'].dropna().str.strip())
+                    print(f"📋 [BOOK1] Loaded {len(book1_property_names)} property names from Book1.xlsx")
+                else:
+                    print("⚠️ [BOOK1] 'name' column not found in Book1.xlsx")
+            except Exception as e:
+                print(f"⚠️ [BOOK1] Could not load Book1.xlsx: {e}")
+            
             properties = []
-            book1_properties = []  # Properties in USER_ADDRESSES (book1)
+            book1_properties = []  # Properties that match Book1.xlsx
             
             for _, row in df.iterrows():
                 try:
+                    # Extract property data from Polaroo Excel format
                     property_data = {
-                        "name": str(row.get('Property', 'Unknown')),
-                        "elec_cost": float(row.get('Electricity Cost', 0)),
-                        "water_cost": float(row.get('Water Cost', 0)),
-                        "elec_extra": float(row.get('elec_extra', 0)),
-                        "water_extra": float(row.get('water_extra', 0)),
-                        "total_extra": float(row.get('Total Extra', 0)),
-                        "allowance": float(row.get('Allowance', 0))
+                        "name": str(row.get('Property', row.get('property_name', 'Unknown'))),
+                        "elec_cost": float(row.get('Electricity Cost', row.get('electricity_cost', 0))),
+                        "water_cost": float(row.get('Water Cost', row.get('water_cost', 0))),
+                        "elec_extra": float(row.get('Electricity Extra', row.get('elec_extra', 0))),
+                        "water_extra": float(row.get('Water Extra', row.get('water_extra', 0))),
+                        "total_extra": float(row.get('Total Extra', row.get('total_extra', 0))),
+                        "allowance": float(row.get('Allowance', 100.0))
                     }
+                    
+                    # Calculate total_extra if not provided
+                    if property_data["total_extra"] == 0:
+                        property_data["total_extra"] = property_data["elec_extra"] + property_data["water_extra"]
                     
                     # Add to all properties list
                     properties.append(property_data)
                     
-                    # Check if this property is in book1 (USER_ADDRESSES)
-                    if property_data["name"] in USER_ADDRESSES:
+                    # Check if this property is in Book1.xlsx
+                    if property_data["name"] in book1_property_names:
                         book1_properties.append(property_data)
                         
                 except Exception as e:
@@ -344,13 +362,13 @@ async def export_excel():
 @app.get("/api/configuration")
 async def get_configuration():
     """Get current configuration settings."""
-    from src.polaroo_process import ROOM_LIMITS, SPECIAL_LIMITS, ADDRESS_ROOM_MAPPING
+    # Inline configuration - no longer importing from polaroo_process
     return {
         "allowance_system": "room-based",
-        "room_limits": ROOM_LIMITS,
-        "special_limits": SPECIAL_LIMITS,
-        "address_room_mapping": ADDRESS_ROOM_MAPPING,
-        "properties": USER_ADDRESSES
+        "default_allowance": 100.0,
+        "water_billing_cycle": "2-month periods",
+        "current_cycle": _determine_current_water_cycle()["period"],
+        "properties_source": "Book1.xlsx"
     }
 
 # ============================================================================
