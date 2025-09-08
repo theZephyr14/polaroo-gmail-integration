@@ -1026,6 +1026,16 @@ async def gmail_draft_page():
     """Serve the Gmail draft creation page."""
     return FileResponse("src/static/gmail_draft.html")
 
+@app.get("/api/health")
+async def health_check():
+    """Health check endpoint for deployment monitoring."""
+    return {
+        "status": "healthy",
+        "service": "polaroo-gmail-integration",
+        "timestamp": datetime.now().isoformat(),
+        "version": "1.0.0"
+    }
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
