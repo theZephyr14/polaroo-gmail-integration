@@ -314,7 +314,11 @@ async def _set_custom_date_range(page) -> None:
 async def _open_download_menu(page) -> None:
     """Click the visible 'Download' control."""
     print("📥 [DOWNLOAD] Looking for Download button...")
+    
+    # Scroll to top first
     await page.evaluate("window.scrollTo(0, 0)")
+    await page.wait_for_timeout(1000)
+    
     btns = page.get_by_text("Download", exact=True)
     if not await btns.count():
         print("🔍 [DOWNLOAD] Trying case-insensitive search...")
@@ -323,13 +327,31 @@ async def _open_download_menu(page) -> None:
     print(f"🔍 [DOWNLOAD] Found {cnt} Download elements")
     if cnt == 0:
         raise PWTimeout("No element with visible text matching 'Download' found.")
+    
     for i in range(cnt):
         el = btns.nth(i)
         if await el.is_visible():
             print(f"✅ [DOWNLOAD] Found visible Download button #{i+1}, clicking...")
+            
+            # Better scrolling and positioning
             await el.scroll_into_view_if_needed()
+            await page.wait_for_timeout(1000)
+            
+            # Get element position and scroll it into center of viewport
+            box = await el.bounding_box()
+            if box:
+                await page.evaluate(f"window.scrollTo({box['x']}, {box['y'] - 200})")
+                await page.wait_for_timeout(500)
+            
+            # Force click with better options
             await _wait(page, "before opening Download menu")
-            await el.click()
+            try:
+                await el.click(force=True)  # Force click to bypass viewport issues
+            except Exception as e:
+                print(f"⚠️ [DOWNLOAD] Normal click failed: {e}")
+                print("🔄 [DOWNLOAD] Trying JavaScript click...")
+                await el.evaluate("element => element.click()")
+            
             await page.wait_for_timeout(500)
             await _wait(page, "after opening Download menu")
             print("✅ [DOWNLOAD] Download menu opened successfully!")
@@ -602,21 +624,19 @@ async def download_invoices_for_property(property_name: str) -> list[str]:
             slow_mo=0,
             viewport={"width": 1366, "height": 900},
             args=[
+                "--no-sandbox",
+                "--disable-dev-shm-usage",
                 "--disable-gpu",
-                "--no-sandbox", 
+                "--disable-extensions",
+                "--disable-background-timer-throttling",
+                "--disable-backgrounding-occluded-windows",
+                "--disable-renderer-backgrounding",
+                "--disable-features=TranslateUI,BlinkGenPropertyTrees",
                 "--disable-blink-features=AutomationControlled",
                 "--disable-web-security",
                 "--disable-features=VizDisplayCompositor",
-                "--disable-dev-shm-usage",
-                "--disable-extensions",
-                "--disable-plugins",
-                "--disable-images",
                 "--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                "--disable-blink-features=AutomationControlled",
-                "--exclude-switches=enable-automation",
-                "--disable-background-timer-throttling",
-                "--disable-backgrounding-occluded-windows",
-                "--disable-renderer-backgrounding"
+                "--exclude-switches=enable-automation"
             ],
             accept_downloads=True,
             ignore_https_errors=True,
@@ -724,20 +744,12 @@ async def download_report_bytes() -> tuple[bytes, str]:
                 "--disable-background-timer-throttling",
                 "--disable-backgrounding-occluded-windows",
                 "--disable-renderer-backgrounding",
-                "--disable-features=TranslateUI,BlinkGenPropertyTrees", 
+                "--disable-features=TranslateUI,BlinkGenPropertyTrees",
                 "--disable-blink-features=AutomationControlled",
                 "--disable-web-security",
                 "--disable-features=VizDisplayCompositor",
-                "--disable-dev-shm-usage",
-                "--disable-extensions",
-                "--disable-plugins",
-                "--disable-images",
                 "--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                "--disable-blink-features=AutomationControlled",
-                "--exclude-switches=enable-automation",
-                "--disable-background-timer-throttling",
-                "--disable-backgrounding-occluded-windows",
-                "--disable-renderer-backgrounding"
+                "--exclude-switches=enable-automation"
             ],
             accept_downloads=True,
             ignore_https_errors=True,

@@ -133,10 +133,12 @@ async def calculate_monthly_report(request: CalculationRequest):
             file_bytes, filename = await download_report_bytes()
             print(f"✅ [API] Report downloaded: {filename} ({len(file_bytes)} bytes)")
         except Exception as e:
-            print(f"⚠️ [API] Scraper failed: {e}")
-            print("🔄 [API] Using mock data for testing...")
-            # Use mock data for testing when scraper fails
-            return await generate_mock_calculation_data()
+            print(f"❌ [API] Scraper failed: {e}")
+            return CalculationResponse(
+                success=False,
+                message="Failed to download report from Polaroo",
+                error=str(e)
+            )
         
         # Step 2: Archive to Supabase (if requested)
         if request.auto_save:
@@ -922,59 +924,7 @@ async def get_book1_emails(request: BookOneEmailRequest):
         print(f"❌ [BOOK1] Error loading emails: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-async def generate_mock_calculation_data():
-    """Generate mock calculation data for testing when scraper fails."""
-    print("🧪 [MOCK] Generating mock calculation data...")
-    
-    mock_properties = [
-        {
-            "name": "Aribau 1º 1ª",
-            "elec_cost": 122.88,
-            "water_cost": 114.94,
-            "elec_extra": 0.0,
-            "water_extra": 0.0,
-            "total_extra": 133.76,
-            "allowance": 100.0
-        },
-        {
-            "name": "Test Property 2",
-            "elec_cost": 85.50,
-            "water_cost": 45.30,
-            "elec_extra": 0.0,
-            "water_extra": 0.0,
-            "total_extra": 30.80,
-            "allowance": 100.0
-        }
-    ]
-    
-    results_data = {
-        "properties": mock_properties,
-        "summary": {
-            "total_properties": len(mock_properties),
-            "total_electricity_cost": sum(p["elec_cost"] for p in mock_properties),
-            "total_water_cost": sum(p["water_cost"] for p in mock_properties),
-            "total_electricity_extra": 0.0,
-            "total_water_extra": 0.0,
-            "total_extra": sum(p["total_extra"] for p in mock_properties),
-            "properties_with_overages": len([p for p in mock_properties if p["total_extra"] > 0]),
-            "calculation_date": datetime.now().isoformat(),
-            "allowance_system": "room-based",
-            "filter_applied": "book1_only",
-            "total_properties_processed": len(mock_properties),
-            "mock_data": True  # Flag to indicate this is mock data
-        }
-    }
-    
-    # Store results globally
-    calculation_results["latest"] = results_data
-    
-    print("✅ [MOCK] Mock data generated successfully!")
-    
-    return CalculationResponse(
-        success=True,
-        message="Mock calculation completed successfully (scraper unavailable)",
-        data=results_data
-    )
+# Mock data function removed - no more fallback data!
 
 async def load_book1_emails_for_property(property_name: str) -> List[Dict[str, str]]:
     """Load email addresses for a property from Book1.xlsx."""
