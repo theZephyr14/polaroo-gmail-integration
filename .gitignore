@@ -16,12 +16,14 @@ parts/
 sdist/
 var/
 wheels/
+pip-wheel-metadata/
+share/python-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
 MANIFEST
 
-# Virtual environments
+# Virtual Environment
 .env
 .venv
 env/
@@ -46,19 +48,39 @@ venv.bak/
 ehthumbs.db
 Thumbs.db
 
-# Project specific
-_debug/
-*.csv
-*.xlsx
-*.log
-start_server.py
-deploy.sh
-prepare_deployment.py
-polaroo-deployment.zip
-deployment/
+# Gmail API Credentials (IMPORTANT!)
+credentials.json
+token.json
+service-account.json
 
-# Chrome profile and browser data
+# Temporary files
+_temp_pdfs/
+_debug/
+chrome_profile/
 .chrome-profile/
 
-# Git installer
-git-installer.exe
+# Logs
+*.log
+logs/
+
+# Environment variables
+.env.local
+.env.production
+
+# Node modules (if any)
+node_modules/
+
+# Deployment files
+polaroo-deployment.zip
+
+# Test files
+test_*.py
+*_test.py
+
+# Local development
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Render specific
+.render/

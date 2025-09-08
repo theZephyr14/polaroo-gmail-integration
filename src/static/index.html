@@ -271,6 +271,11 @@
                             </button>
                         </li>
                         <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="email-tab" data-bs-toggle="tab" data-bs-target="#email" type="button" role="tab">
+                                <i class="fas fa-envelope me-2"></i>Email Management
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
                             <button class="nav-link" id="export-tab" data-bs-toggle="tab" data-bs-target="#export" type="button" role="tab">
                                 <i class="fas fa-download me-2"></i>Export
                             </button>
@@ -319,11 +324,12 @@
                                             <th>Allowance</th>
                                             <th>Total Cost</th>
                                             <th>Total Extra</th>
+                                            <th>Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody id="overagesTableBody">
                                         <tr>
-                                            <td colspan="4" class="text-center text-muted">No overages data available</td>
+                                            <td colspan="5" class="text-center text-muted">No overages data available</td>
                                         </tr>
                                     </tbody>
                                 </table>
@@ -343,6 +349,78 @@
                                     <div class="metric-card">
                                         <h5 class="mb-3">Overages by Property</h5>
                                         <canvas id="overagesChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Email Management Tab -->
+                        <div class="tab-pane fade" id="email" role="tabpanel">
+                            <div class="row">
+                                <!-- Email Actions -->
+                                <div class="col-md-4">
+                                    <div class="metric-card">
+                                        <h5 class="mb-3"><i class="fas fa-envelope me-2"></i>Email Actions</h5>
+                                        
+                                        <button class="btn btn-warning w-100 mb-3" onclick="generateBulkEmails()">
+                                            <i class="fas fa-bolt me-2"></i>Generate All Emails
+                                        </button>
+                                        
+                                        <button class="btn btn-info w-100 mb-3" onclick="loadPendingApprovals()">
+                                            <i class="fas fa-clock me-2"></i>Pending Approvals
+                                            <span class="badge bg-danger ms-2" id="pendingCount">0</span>
+                                        </button>
+                                        
+                                        <button class="btn btn-success w-100 mb-3" onclick="loadSentEmails()">
+                                            <i class="fas fa-check me-2"></i>Sent Emails
+                                        </button>
+                                        
+                                        <button class="btn btn-secondary w-100 mb-3" onclick="loadEmailStatistics()">
+                                            <i class="fas fa-chart-bar me-2"></i>Statistics
+                                        </button>
+                                        
+                                        <hr>
+                                        
+                                        <button class="btn btn-info w-100 mb-3" onclick="testRealInvoiceDownload()">
+                                            <i class="fas fa-download me-2"></i>Test Real Invoice Download
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <!-- Email Content -->
+                                <div class="col-md-8">
+                                    <div class="metric-card">
+                                        <h5 class="mb-3"><i class="fas fa-list me-2"></i>Email Management</h5>
+                                        
+                                        <!-- Email List -->
+                                        <div id="emailList">
+                                            <div class="text-center text-muted">
+                                                <i class="fas fa-envelope fa-3x mb-3"></i>
+                                                <p>Click "Generate All Emails" to start the email workflow</p>
+                                            </div>
+                                        </div>
+                                        
+                                        <!-- Email Preview Modal -->
+                                        <div class="modal fade" id="emailPreviewModal" tabindex="-1">
+                                            <div class="modal-dialog modal-lg">
+                                                <div class="modal-content">
+                                                    <div class="modal-header">
+                                                        <h5 class="modal-title">Email Preview</h5>
+                                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                                    </div>
+                                                    <div class="modal-body">
+                                                        <div id="emailPreviewContent">
+                                                            <!-- Email preview content will be loaded here -->
+                                                        </div>
+                                                    </div>
+                                                    <div class="modal-footer">
+                                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                                        <button type="button" class="btn btn-danger" onclick="rejectEmail()">Reject</button>
+                                                        <button type="button" class="btn btn-success" onclick="approveEmail()">Approve & Send</button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -376,6 +454,76 @@
     <script>
         let currentData = null;
         
+        // Load saved data on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadSavedData();
+            updatePendingCount();
+        });
+        
+        function saveDataToStorage(data) {
+            try {
+                localStorage.setItem('polaroo_calculation_data', JSON.stringify(data));
+                localStorage.setItem('polaroo_calculation_timestamp', new Date().toISOString());
+                console.log('📦 Data saved to localStorage');
+            } catch (error) {
+                console.error('Failed to save data to localStorage:', error);
+            }
+        }
+        
+        function loadSavedData() {
+            try {
+                const savedData = localStorage.getItem('polaroo_calculation_data');
+                const timestamp = localStorage.getItem('polaroo_calculation_timestamp');
+                
+                if (savedData && timestamp) {
+                    const data = JSON.parse(savedData);
+                    const saveTime = new Date(timestamp);
+                    const now = new Date();
+                    const hoursSinceCalculation = (now - saveTime) / (1000 * 60 * 60);
+                    
+                    // Only load if data is less than 24 hours old
+                    if (hoursSinceCalculation < 24) {
+                        currentData = data;
+                        updateUI(data);
+                        console.log(`📦 Loaded saved data from ${saveTime.toLocaleString()}`);
+                        
+                        // Show data age indicator
+                        showDataAge(saveTime);
+                    } else {
+                        // Clear old data
+                        localStorage.removeItem('polaroo_calculation_data');
+                        localStorage.removeItem('polaroo_calculation_timestamp');
+                        console.log('🧹 Cleared old calculation data');
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to load saved data:', error);
+            }
+        }
+        
+        function showDataAge(timestamp) {
+            const now = new Date();
+            const diff = now - timestamp;
+            const minutes = Math.floor(diff / (1000 * 60));
+            const hours = Math.floor(minutes / 60);
+            
+            let ageText = '';
+            if (hours > 0) {
+                ageText = `${hours} hour${hours > 1 ? 's' : ''} ago`;
+            } else {
+                ageText = `${minutes} minute${minutes > 1 ? 's' : ''} ago`;
+            }
+            
+            // Add age indicator to the header
+            const header = document.querySelector('.header h1');
+            if (header && !header.querySelector('.data-age')) {
+                const ageIndicator = document.createElement('small');
+                ageIndicator.className = 'data-age text-light opacity-75 ms-3';
+                ageIndicator.innerHTML = `<i class="fas fa-clock me-1"></i>Last calculated ${ageText}`;
+                header.appendChild(ageIndicator);
+            }
+        }
+        
         async function calculateReport() {
             const loadingElement = document.getElementById('loadingOverview');
             const calculateBtn = document.querySelector('.btn-calculate');
@@ -406,6 +554,7 @@
                 if (result.success) {
                     currentData = result.data;
                     updateUI(result.data);
+                    saveDataToStorage(result.data); // Save to localStorage
                     showSuccessMessage('Report calculated successfully!');
                 } else {
                     throw new Error(result.error || 'Calculation failed');
@@ -465,7 +614,7 @@
             tbody.innerHTML = '';
             
             if (overages.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="4" class="text-center text-success">No overages found!</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="5" class="text-center text-success">No overages found!</td></tr>';
                 return;
             }
             
@@ -475,10 +624,25 @@
                 row.className = 'overage-row';
                 
                 row.innerHTML = `
-                    <td><strong>${property.name}</strong></td>
+                    <td>
+                        <a href="#" class="property-link text-decoration-none" onclick="openEmailDraftTab('${property.name}'); return false;">
+                            <strong>${property.name}</strong>
+                            <i class="fas fa-external-link-alt ms-1 text-muted"></i>
+                        </a>
+                    </td>
                     <td><span class="badge bg-primary">€${property.allowance.toFixed(0)}</span></td>
                     <td><strong>€${totalCost.toFixed(2)}</strong></td>
                     <td class="text-danger"><strong>€${property.total_extra.toFixed(2)}</strong></td>
+                    <td>
+                        <div class="btn-group" role="group">
+                            <button class="btn btn-sm btn-warning" onclick="generateEmailForProperty('${property.name}')">
+                                <i class="fas fa-envelope me-1"></i>Old Email
+                            </button>
+                            <button class="btn btn-sm btn-success" onclick="createGmailDraft('${property.name}')">
+                                <i class="fas fa-draft2digital me-1"></i>Gmail Draft
+                            </button>
+                        </div>
+                    </td>
                 `;
                 
                 tbody.appendChild(row);
@@ -593,6 +757,785 @@
             link.click();
             document.body.removeChild(link);
             URL.revokeObjectURL(url);
+        }
+        
+        // ============================================================================
+        // EMAIL MANAGEMENT FUNCTIONS
+        // ============================================================================
+        
+        let currentEmailId = null;
+        
+        async function generateBulkEmails() {
+            try {
+                showLoadingMessage('Generating emails for all properties with overages...');
+                
+                const response = await fetch('/api/email/generate-bulk', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showSuccessMessage(`Generated ${result.generated_emails} emails successfully!`);
+                    displayEmailResults(result.emails);
+                    updatePendingCount();
+                } else {
+                    throw new Error(result.message || 'Failed to generate emails');
+                }
+                
+            } catch (error) {
+                console.error('Error generating bulk emails:', error);
+                showErrorMessage('Failed to generate emails: ' + error.message);
+            } finally {
+                hideLoadingMessage();
+            }
+        }
+        
+        async function generateEmailForProperty(propertyName) {
+            try {
+                showLoadingMessage(`Generating email for ${propertyName}...`);
+                
+                const response = await fetch('/api/email/generate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        property_name: propertyName,
+                        require_approval: true
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showSuccessMessage(`Email generated for ${propertyName}!`);
+                    updatePendingCount();
+                } else {
+                    throw new Error(result.message || 'Failed to generate email');
+                }
+                
+            } catch (error) {
+                console.error('Error generating email:', error);
+                showErrorMessage('Failed to generate email: ' + error.message);
+            } finally {
+                hideLoadingMessage();
+            }
+        }
+        
+        async function loadPendingApprovals() {
+            try {
+                const response = await fetch('/api/email/pending-approvals');
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    displayPendingEmails(result.emails);
+                } else {
+                    throw new Error('Failed to load pending approvals');
+                }
+                
+            } catch (error) {
+                console.error('Error loading pending approvals:', error);
+                showErrorMessage('Failed to load pending approvals: ' + error.message);
+            }
+        }
+        
+        async function loadSentEmails() {
+            try {
+                const response = await fetch('/api/email/sent');
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    displaySentEmails(result.emails);
+                } else {
+                    throw new Error('Failed to load sent emails');
+                }
+                
+            } catch (error) {
+                console.error('Error loading sent emails:', error);
+                showErrorMessage('Failed to load sent emails: ' + error.message);
+            }
+        }
+        
+        async function loadEmailStatistics() {
+            try {
+                const response = await fetch('/api/email/statistics');
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    displayEmailStatistics(result.email_statistics, result.invoice_statistics);
+                } else {
+                    throw new Error('Failed to load email statistics');
+                }
+                
+            } catch (error) {
+                console.error('Error loading email statistics:', error);
+                showErrorMessage('Failed to load email statistics: ' + error.message);
+            }
+        }
+        
+        function displayEmailResults(emails) {
+            const emailList = document.getElementById('emailList');
+            
+            if (emails.length === 0) {
+                emailList.innerHTML = `
+                    <div class="text-center text-success">
+                        <i class="fas fa-check-circle fa-3x mb-3"></i>
+                        <p>No properties with overages found!</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = '<div class="table-responsive"><table class="table table-hover">';
+            html += `
+                <thead>
+                    <tr>
+                        <th>Property</th>
+                        <th>Email Address</th>
+                        <th>Total Extra</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+            `;
+            
+            emails.forEach(email => {
+                const statusBadge = getStatusBadge(email.status);
+                html += `
+                    <tr>
+                        <td><strong>${email.property_name}</strong></td>
+                        <td>${email.email_address}</td>
+                        <td class="text-danger"><strong>€${email.total_extra.toFixed(2)}</strong></td>
+                        <td>${statusBadge}</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary" onclick="previewEmail('${email.email_id}')">
+                                <i class="fas fa-eye"></i> Preview
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            html += '</tbody></table></div>';
+            emailList.innerHTML = html;
+        }
+        
+        function displayPendingEmails(emails) {
+            const emailList = document.getElementById('emailList');
+            
+            if (emails.length === 0) {
+                emailList.innerHTML = `
+                    <div class="text-center text-success">
+                        <i class="fas fa-check-circle fa-3x mb-3"></i>
+                        <p>No emails pending approval!</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = '<div class="table-responsive"><table class="table table-hover">';
+            html += `
+                <thead>
+                    <tr>
+                        <th>Property</th>
+                        <th>Email Address</th>
+                        <th>Total Extra</th>
+                        <th>Queued At</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+            `;
+            
+            emails.forEach(approval => {
+                const preview = approval.preview;
+                const queuedAt = new Date(approval.queued_at).toLocaleString();
+                
+                html += `
+                    <tr>
+                        <td><strong>${preview.property_name}</strong></td>
+                        <td>${preview.email_address}</td>
+                        <td class="text-danger"><strong>€${preview.total_extra.toFixed(2)}</strong></td>
+                        <td>${queuedAt}</td>
+                        <td>
+                            <button class="btn btn-sm btn-outline-primary" onclick="previewEmail('${approval.email_id}')">
+                                <i class="fas fa-eye"></i> Preview
+                            </button>
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            html += '</tbody></table></div>';
+            emailList.innerHTML = html;
+        }
+        
+        function displaySentEmails(emails) {
+            const emailList = document.getElementById('emailList');
+            
+            if (emails.length === 0) {
+                emailList.innerHTML = `
+                    <div class="text-center text-muted">
+                        <i class="fas fa-envelope fa-3x mb-3"></i>
+                        <p>No emails sent yet!</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = '<div class="table-responsive"><table class="table table-hover">';
+            html += `
+                <thead>
+                    <tr>
+                        <th>Property</th>
+                        <th>Email Address</th>
+                        <th>Total Extra</th>
+                        <th>Sent At</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+            `;
+            
+            emails.forEach(email => {
+                const sentAt = new Date(email.sent_at).toLocaleString();
+                const statusBadge = getStatusBadge(email.status);
+                
+                html += `
+                    <tr>
+                        <td><strong>${email.property_name}</strong></td>
+                        <td>${email.email_address}</td>
+                        <td class="text-danger"><strong>€${email.total_extra.toFixed(2)}</strong></td>
+                        <td>${sentAt}</td>
+                        <td>${statusBadge}</td>
+                    </tr>
+                `;
+            });
+            
+            html += '</tbody></table></div>';
+            emailList.innerHTML = html;
+        }
+        
+        function displayEmailStatistics(emailStats, invoiceStats) {
+            const emailList = document.getElementById('emailList');
+            
+            let html = `
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="metric-card">
+                            <h6><i class="fas fa-envelope me-2"></i>Email Statistics</h6>
+                            <ul class="list-unstyled">
+                                <li><strong>Pending Approvals:</strong> ${emailStats.pending_approvals}</li>
+                                <li><strong>Sent Emails:</strong> ${emailStats.sent_emails}</li>
+                                <li><strong>Total Emails:</strong> ${emailStats.total_emails}</li>
+                                <li><strong>Mode:</strong> ${emailStats.offline_mode ? 'Offline (Testing)' : 'Production'}</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="metric-card">
+                            <h6><i class="fas fa-file-pdf me-2"></i>Invoice Statistics</h6>
+                            <ul class="list-unstyled">
+                                <li><strong>Total Properties:</strong> ${invoiceStats.total_properties}</li>
+                                <li><strong>Total Invoices:</strong> ${invoiceStats.total_invoices}</li>
+                                <li><strong>Electricity Invoices:</strong> ${invoiceStats.electricity_invoices}</li>
+                                <li><strong>Water Invoices:</strong> ${invoiceStats.water_invoices}</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            emailList.innerHTML = html;
+        }
+        
+        async function previewEmail(emailId) {
+            try {
+                currentEmailId = emailId;
+                
+                // Get pending approvals to find the email data
+                const response = await fetch('/api/email/pending-approvals');
+                const result = await response.json();
+                
+                if (!result.success) {
+                    throw new Error('Failed to load email data');
+                }
+                
+                const emailData = result.emails.find(email => email.email_id === emailId);
+                
+                if (!emailData) {
+                    throw new Error('Email not found');
+                }
+                
+                const preview = emailData.preview;
+                const emailContent = emailData.email_data;
+                
+                const previewContent = document.getElementById('emailPreviewContent');
+                previewContent.innerHTML = `
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6><i class="fas fa-info-circle me-2"></i>Email Details</h6>
+                            <ul class="list-unstyled">
+                                <li><strong>Property:</strong> ${preview.property_name}</li>
+                                <li><strong>To:</strong> ${preview.email_address}</li>
+                                <li><strong>Subject:</strong> ${preview.subject}</li>
+                                <li><strong>Total Extra:</strong> €${preview.total_extra.toFixed(2)}</li>
+                            </ul>
+                        </div>
+                        <div class="col-md-6">
+                            <h6><i class="fas fa-file-pdf me-2"></i>Attachments</h6>
+                            <ul class="list-unstyled">
+                                <li><i class="fas fa-bolt text-warning"></i> Electricity Invoice</li>
+                                <li><i class="fas fa-tint text-info"></i> Water Invoice</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <hr>
+                    <h6><i class="fas fa-envelope me-2"></i>Email Content</h6>
+                    <div class="border p-3 bg-light" style="white-space: pre-wrap; font-family: monospace; font-size: 0.9em;">
+                        ${emailContent.body}
+                    </div>
+                `;
+                
+                // Show the modal
+                const modal = new bootstrap.Modal(document.getElementById('emailPreviewModal'));
+                modal.show();
+                
+            } catch (error) {
+                console.error('Error previewing email:', error);
+                showErrorMessage('Failed to preview email: ' + error.message);
+            }
+        }
+        
+        async function approveEmail() {
+            if (!currentEmailId) {
+                showErrorMessage('No email selected for approval');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/email/approve', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email_id: currentEmailId,
+                        action: 'approve'
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showSuccessMessage('Email approved and sent successfully!');
+                    updatePendingCount();
+                    loadPendingApprovals(); // Refresh the list
+                } else {
+                    throw new Error(result.message || 'Failed to approve email');
+                }
+                
+            } catch (error) {
+                console.error('Error approving email:', error);
+                showErrorMessage('Failed to approve email: ' + error.message);
+            } finally {
+                // Close the modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('emailPreviewModal'));
+                if (modal) {
+                    modal.hide();
+                }
+                currentEmailId = null;
+            }
+        }
+        
+        async function rejectEmail() {
+            if (!currentEmailId) {
+                showErrorMessage('No email selected for rejection');
+                return;
+            }
+            
+            const reason = prompt('Please provide a reason for rejecting this email:');
+            if (!reason) {
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/email/approve', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email_id: currentEmailId,
+                        action: 'reject',
+                        reason: reason
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showSuccessMessage('Email rejected successfully!');
+                    updatePendingCount();
+                    loadPendingApprovals(); // Refresh the list
+                } else {
+                    throw new Error(result.message || 'Failed to reject email');
+                }
+                
+            } catch (error) {
+                console.error('Error rejecting email:', error);
+                showErrorMessage('Failed to reject email: ' + error.message);
+            } finally {
+                // Close the modal
+                const modal = bootstrap.Modal.getInstance(document.getElementById('emailPreviewModal'));
+                if (modal) {
+                    modal.hide();
+                }
+                currentEmailId = null;
+            }
+        }
+        
+        async function updatePendingCount() {
+            try {
+                const response = await fetch('/api/email/pending-approvals');
+                const result = await response.json();
+                
+                if (result.success) {
+                    const pendingCount = document.getElementById('pendingCount');
+                    pendingCount.textContent = result.pending_count;
+                    pendingCount.style.display = result.pending_count > 0 ? 'inline' : 'none';
+                }
+            } catch (error) {
+                console.error('Error updating pending count:', error);
+            }
+        }
+        
+        function getStatusBadge(status) {
+            const badges = {
+                'pending_approval': '<span class="badge bg-warning">Pending Approval</span>',
+                'approved': '<span class="badge bg-info">Approved</span>',
+                'sent': '<span class="badge bg-success">Sent</span>',
+                'rejected': '<span class="badge bg-danger">Rejected</span>',
+                'failed': '<span class="badge bg-danger">Failed</span>'
+            };
+            return badges[status] || '<span class="badge bg-secondary">Unknown</span>';
+        }
+        
+        function showLoadingMessage(message) {
+            const emailList = document.getElementById('emailList');
+            emailList.innerHTML = `
+                <div class="text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">${message}</p>
+                </div>
+            `;
+        }
+        
+        function hideLoadingMessage() {
+            // Loading message will be replaced by actual content
+        }
+        
+        // Remove this old event listener as we now have a combined one above
+        
+        // ============================================================================
+        // REAL INVOICE DOWNLOAD TESTING
+        // ============================================================================
+        
+        async function testRealInvoiceDownload() {
+            try {
+                // Get property name from user
+                const propertyName = prompt('Enter property name to test invoice download:');
+                if (!propertyName) {
+                    return;
+                }
+                
+                showLoadingMessage(`Testing real invoice download for ${propertyName}...`);
+                
+                const response = await fetch('/api/invoices/download-real', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        property_name: propertyName
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showSuccessMessage(`Successfully downloaded ${result.total_files} invoices for ${propertyName}!`);
+                    displayInvoiceDownloadResults(result);
+                } else {
+                    throw new Error(result.message || 'Failed to download invoices');
+                }
+                
+            } catch (error) {
+                console.error('Error testing real invoice download:', error);
+                showErrorMessage('Failed to test real invoice download: ' + error.message);
+            } finally {
+                hideLoadingMessage();
+            }
+        }
+        
+        function displayInvoiceDownloadResults(result) {
+            const emailList = document.getElementById('emailList');
+            
+            let html = `
+                <div class="alert alert-success">
+                    <h6><i class="fas fa-check-circle me-2"></i>Invoice Download Results</h6>
+                    <p><strong>Property:</strong> ${result.property_name}</p>
+                    <p><strong>Total Files:</strong> ${result.total_files}</p>
+                    <p><strong>Message:</strong> ${result.message}</p>
+                </div>
+            `;
+            
+            if (result.downloaded_files && result.downloaded_files.length > 0) {
+                html += `
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Filename</th>
+                                    <th>Size (bytes)</th>
+                                    <th>Created At</th>
+                                    <th>Path</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                `;
+                
+                result.downloaded_files.forEach(file => {
+                    html += `
+                        <tr>
+                            <td><strong>${file.filename}</strong></td>
+                            <td>${file.size_bytes.toLocaleString()}</td>
+                            <td>${new Date(file.created_at).toLocaleString()}</td>
+                            <td><code>${file.path}</code></td>
+                        </tr>
+                    `;
+                });
+                
+                html += '</tbody></table></div>';
+            }
+            
+            emailList.innerHTML = html;
+        }
+        
+        // ============================================================================
+        // GMAIL DRAFT GENERATOR INTEGRATION
+        // ============================================================================
+        
+        async function openEmailDraftTab(propertyName) {
+            /**
+             * Opens a new tab with Gmail draft creation interface
+             */
+            console.log(`🔗 Opening Gmail draft tab for property: ${propertyName}`);
+            
+            // Create URL with property information
+            const draftUrl = `/gmail-draft?property=${encodeURIComponent(propertyName)}`;
+            
+            // Open in new tab
+            const newTab = window.open(draftUrl, '_blank');
+            
+            if (newTab) {
+                newTab.focus();
+                showSuccessMessage(`Opening Gmail draft for ${propertyName} in new tab`);
+            } else {
+                showErrorMessage('Popup blocked! Please allow popups for this site.');
+            }
+        }
+        
+        async function createGmailDraft(propertyName) {
+            /**
+             * Create Gmail draft using the integrated draft generator
+             */
+            console.log(`📧 Creating Gmail draft for property: ${propertyName}`);
+            
+            try {
+                showLoadingMessage(`Creating Gmail draft for ${propertyName}...`);
+                
+                const response = await fetch('/api/gmail/create-draft', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        property_name: propertyName,
+                        include_cc_recipients: true,
+                        attach_pdfs: true
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    showSuccessMessage(`Gmail draft created successfully for ${propertyName}!`);
+                    
+                    // Show draft details
+                    displayGmailDraftResult(result);
+                    
+                    // Ask user if they want to open Gmail
+                    if (confirm('Gmail draft created! Would you like to open Gmail to review it?')) {
+                        window.open('https://mail.google.com/mail/u/0/#drafts', '_blank');
+                    }
+                } else {
+                    throw new Error(result.message || 'Failed to create Gmail draft');
+                }
+                
+            } catch (error) {
+                console.error('Error creating Gmail draft:', error);
+                showErrorMessage('Failed to create Gmail draft: ' + error.message);
+            } finally {
+                hideLoadingMessage();
+            }
+        }
+        
+        function displayGmailDraftResult(result) {
+            /**
+             * Display Gmail draft creation results
+             */
+            const emailList = document.getElementById('emailList');
+            
+            let html = `
+                <div class="alert alert-success">
+                    <h6><i class="fas fa-check-circle me-2"></i>Gmail Draft Created Successfully!</h6>
+                    <p><strong>Property:</strong> ${result.property_name}</p>
+                    <p><strong>Recipients:</strong> ${result.recipient_count} (including CC)</p>
+                    <p><strong>Attachments:</strong> ${result.attachment_count} PDFs</p>
+                    <p><strong>Draft ID:</strong> ${result.draft_id}</p>
+                </div>
+            `;
+            
+            if (result.recipients && result.recipients.length > 0) {
+                html += `
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>Email Address</th>
+                                    <th>Type</th>
+                                    <th>Source</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                `;
+                
+                result.recipients.forEach(recipient => {
+                    html += `
+                        <tr>
+                            <td>${recipient.email}</td>
+                            <td><span class="badge ${recipient.type === 'to' ? 'bg-primary' : 'bg-secondary'}">${recipient.type.toUpperCase()}</span></td>
+                            <td>Book1.xlsx</td>
+                        </tr>
+                    `;
+                });
+                
+                html += '</tbody></table></div>';
+            }
+            
+            if (result.attachments && result.attachments.length > 0) {
+                html += `
+                    <div class="mt-3">
+                        <h6><i class="fas fa-paperclip me-2"></i>Attachments</h6>
+                        <ul class="list-unstyled">
+                `;
+                
+                result.attachments.forEach(attachment => {
+                    html += `<li><i class="fas fa-file-pdf text-danger me-2"></i>${attachment.filename}</li>`;
+                });
+                
+                html += '</ul></div>';
+            }
+            
+            html += `
+                <div class="mt-3">
+                    <a href="https://mail.google.com/mail/u/0/#drafts" target="_blank" class="btn btn-primary">
+                        <i class="fas fa-external-link-alt me-2"></i>Open Gmail Drafts
+                    </a>
+                </div>
+            `;
+            
+            emailList.innerHTML = html;
+        }
+        
+        async function loadBookOneEmails(propertyName) {
+            /**
+             * Load email addresses for a property from Book1.xlsx
+             */
+            try {
+                const response = await fetch('/api/book1/emails', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        property_name: propertyName
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    return result.emails || [];
+                } else {
+                    throw new Error(result.message || 'Failed to load emails');
+                }
+                
+            } catch (error) {
+                console.error('Error loading Book1 emails:', error);
+                return [];
+            }
         }
     </script>
 </body>

@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gmail Draft Generator - Polaroo System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #0d6efd;
+            --success-color: #198754;
+            --warning-color: #ffc107;
+            --danger-color: #dc3545;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .main-container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            margin: 2rem auto;
+            max-width: 900px;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, var(--primary-color), #0056b3);
+            color: white;
+            padding: 2rem;
+            border-radius: 20px 20px 0 0;
+            text-align: center;
+        }
+        
+        .content-card {
+            background: white;
+            border-radius: 15px;
+            padding: 2rem;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            margin: 1rem;
+        }
+        
+        .step-indicator {
+            display: flex;
+            justify-content: center;
+            margin: 2rem 0;
+        }
+        
+        .step {
+            display: flex;
+            align-items: center;
+            margin: 0 1rem;
+        }
+        
+        .step-circle {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 0.5rem;
+        }
+        
+        .step.active .step-circle {
+            background: var(--primary-color);
+            color: white;
+        }
+        
+        .step.completed .step-circle {
+            background: var(--success-color);
+            color: white;
+        }
+        
+        .step.pending .step-circle {
+            background: #e9ecef;
+            color: #6c757d;
+        }
+        
+        .recipient-list {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+        
+        .attachment-list {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 1rem;
+            margin: 1rem 0;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 2rem;
+        }
+        
+        .spinner-border {
+            width: 3rem;
+            height: 3rem;
+        }
+        
+        .property-info {
+            background: linear-gradient(135deg, #e3f2fd, #bbdefb);
+            border-radius: 15px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">
+        <div class="main-container">
+            <!-- Header -->
+            <div class="header">
+                <h1><i class="fas fa-envelope-open-text me-3"></i>Gmail Draft Generator</h1>
+                <p class="mb-0">Create personalized Gmail drafts for utility bill overages</p>
+            </div>
+            
+            <!-- Property Information -->
+            <div class="content-card">
+                <div id="propertyInfo" class="property-info">
+                    <h5><i class="fas fa-home me-2"></i>Property Information</h5>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>Property Name:</strong> <span id="propertyName">Loading...</span></p>
+                            <p><strong>Total Overage:</strong> <span id="totalOverage" class="text-danger">€0.00</span></p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>Electricity Cost:</strong> <span id="elecCost">€0.00</span></p>
+                            <p><strong>Water Cost:</strong> <span id="waterCost">€0.00</span></p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Step Indicator -->
+                <div class="step-indicator">
+                    <div class="step pending" id="step1">
+                        <div class="step-circle">1</div>
+                        <span>Load Recipients</span>
+                    </div>
+                    <div class="step pending" id="step2">
+                        <div class="step-circle">2</div>
+                        <span>Download PDFs</span>
+                    </div>
+                    <div class="step pending" id="step3">
+                        <div class="step-circle">3</div>
+                        <span>Create Draft</span>
+                    </div>
+                    <div class="step pending" id="step4">
+                        <div class="step-circle">4</div>
+                        <span>Review & Send</span>
+                    </div>
+                </div>
+                
+                <!-- Main Content Area -->
+                <div id="mainContent">
+                    <div class="text-center">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2">Initializing Gmail draft generator...</p>
+                    </div>
+                </div>
+                
+                <!-- Action Buttons -->
+                <div class="text-center mt-4" id="actionButtons" style="display: none;">
+                    <button class="btn btn-success btn-lg me-3" onclick="createGmailDraft()">
+                        <i class="fas fa-magic me-2"></i>Create Gmail Draft
+                    </button>
+                    <button class="btn btn-outline-secondary" onclick="window.close()">
+                        <i class="fas fa-times me-2"></i>Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let propertyName = null;
+        let propertyData = null;
+        let recipients = [];
+        let attachments = [];
+        
+        // Initialize page
+        document.addEventListener('DOMContentLoaded', function() {
+            initializePage();
+        });
+        
+        function initializePage() {
+            // Get property name from URL parameters
+            const urlParams = new URLSearchParams(window.location.search);
+            propertyName = urlParams.get('property');
+            
+            if (!propertyName) {
+                showError('No property specified in URL');
+                return;
+            }
+            
+            document.getElementById('propertyName').textContent = propertyName;
+            
+            // Load property data and initialize
+            loadPropertyData();
+        }
+        
+        async function loadPropertyData() {
+            try {
+                // Load property data from main calculation results
+                const response = await fetch('/api/results/latest');
+                
+                if (!response.ok) {
+                    throw new Error('No calculation results available. Please run calculation first.');
+                }
+                
+                const result = await response.json();
+                const properties = result.properties;
+                
+                // Find the specific property
+                propertyData = properties.find(p => p.name === propertyName);
+                
+                if (!propertyData) {
+                    throw new Error(`Property '${propertyName}' not found in calculation results`);
+                }
+                
+                // Update property information
+                updatePropertyInfo();
+                
+                // Start the draft creation process
+                startDraftProcess();
+                
+            } catch (error) {
+                console.error('Error loading property data:', error);
+                showError('Failed to load property data: ' + error.message);
+            }
+        }
+        
+        function updatePropertyInfo() {
+            document.getElementById('propertyName').textContent = propertyData.name;
+            document.getElementById('totalOverage').textContent = `€${propertyData.total_extra.toFixed(2)}`;
+            document.getElementById('elecCost').textContent = `€${propertyData.elec_cost.toFixed(2)}`;
+            document.getElementById('waterCost').textContent = `€${propertyData.water_cost.toFixed(2)}`;
+        }
+        
+        async function startDraftProcess() {
+            try {
+                // Step 1: Load recipients
+                setStepActive('step1');
+                await loadRecipients();
+                setStepCompleted('step1');
+                
+                // Step 2: Load attachments info
+                setStepActive('step2');
+                await loadAttachments();
+                setStepCompleted('step2');
+                
+                // Step 3: Show ready to create draft
+                setStepActive('step3');
+                showReadyToCreate();
+                
+            } catch (error) {
+                console.error('Error in draft process:', error);
+                showError('Draft process failed: ' + error.message);
+            }
+        }
+        
+        async function loadRecipients() {
+            try {
+                const response = await fetch('/api/book1/emails', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        property_name: propertyName
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    recipients = result.emails;
+                    console.log(`Loaded ${recipients.length} recipients`);
+                } else {
+                    throw new Error(result.message || 'Failed to load recipients');
+                }
+                
+            } catch (error) {
+                console.error('Error loading recipients:', error);
+                // Use default recipient
+                recipients = [{email: 'default@example.com', type: 'to'}];
+            }
+        }
+        
+        async function loadAttachments() {
+            // For now, we'll assume PDFs will be downloaded during draft creation
+            // This step is mainly for UI flow
+            attachments = [
+                {name: 'Electricity Invoice', type: 'electricity'},
+                {name: 'Water Invoice', type: 'water'}
+            ];
+            
+            // Simulate loading delay
+            await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+        
+        function showReadyToCreate() {
+            const mainContent = document.getElementById('mainContent');
+            
+            let html = `
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="recipient-list">
+                            <h6><i class="fas fa-users me-2"></i>Recipients (${recipients.length})</h6>
+                            <ul class="list-unstyled">
+            `;
+            
+            recipients.forEach(recipient => {
+                const badgeClass = recipient.type === 'to' ? 'bg-primary' : 'bg-secondary';
+                html += `
+                    <li class="d-flex justify-content-between align-items-center mb-2">
+                        <span>${recipient.email}</span>
+                        <span class="badge ${badgeClass}">${recipient.type.toUpperCase()}</span>
+                    </li>
+                `;
+            });
+            
+            html += `
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="attachment-list">
+                            <h6><i class="fas fa-paperclip me-2"></i>Attachments (${attachments.length})</h6>
+                            <ul class="list-unstyled">
+            `;
+            
+            attachments.forEach(attachment => {
+                html += `
+                    <li class="d-flex align-items-center mb-2">
+                        <i class="fas fa-file-pdf text-danger me-2"></i>
+                        <span>${attachment.name}</span>
+                    </li>
+                `;
+            });
+            
+            html += `
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="alert alert-info mt-3">
+                    <h6><i class="fas fa-info-circle me-2"></i>Ready to Create Gmail Draft</h6>
+                    <p class="mb-0">All information loaded. Click "Create Gmail Draft" to generate the email draft in your Gmail account.</p>
+                </div>
+            `;
+            
+            mainContent.innerHTML = html;
+            document.getElementById('actionButtons').style.display = 'block';
+        }
+        
+        async function createGmailDraft() {
+            try {
+                setStepActive('step3');
+                showLoading('Creating Gmail draft...');
+                
+                const response = await fetch('/api/gmail/create-draft', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        property_name: propertyName,
+                        include_cc_recipients: true,
+                        attach_pdfs: true
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    setStepCompleted('step3');
+                    setStepActive('step4');
+                    showDraftSuccess(result);
+                } else {
+                    throw new Error(result.message || 'Failed to create Gmail draft');
+                }
+                
+            } catch (error) {
+                console.error('Error creating Gmail draft:', error);
+                showError('Failed to create Gmail draft: ' + error.message);
+            }
+        }
+        
+        function showDraftSuccess(result) {
+            const mainContent = document.getElementById('mainContent');
+            
+            let html = `
+                <div class="alert alert-success">
+                    <h5><i class="fas fa-check-circle me-2"></i>Gmail Draft Created Successfully!</h5>
+                    <p><strong>Draft ID:</strong> ${result.draft_id}</p>
+                    <p><strong>Recipients:</strong> ${result.recipient_count} (including CC)</p>
+                    <p><strong>Attachments:</strong> ${result.attachment_count} PDFs</p>
+                </div>
+                
+                <div class="text-center mt-4">
+                    <a href="${result.gmail_url}" target="_blank" class="btn btn-primary btn-lg me-3">
+                        <i class="fas fa-external-link-alt me-2"></i>Open Gmail Draft
+                    </a>
+                    <button class="btn btn-success btn-lg me-3" onclick="window.close()">
+                        <i class="fas fa-check me-2"></i>Done
+                    </button>
+                </div>
+                
+                <div class="mt-4">
+                    <h6>Next Steps:</h6>
+                    <ol>
+                        <li>Click "Open Gmail Draft" to review the email</li>
+                        <li>Make any necessary edits to the content</li>
+                        <li>Verify all recipients and attachments</li>
+                        <li>Send the email when ready</li>
+                    </ol>
+                </div>
+            `;
+            
+            mainContent.innerHTML = html;
+            setStepCompleted('step4');
+            document.getElementById('actionButtons').style.display = 'none';
+        }
+        
+        function showLoading(message) {
+            const mainContent = document.getElementById('mainContent');
+            mainContent.innerHTML = `
+                <div class="loading">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2">${message}</p>
+                </div>
+            `;
+        }
+        
+        function showError(message) {
+            const mainContent = document.getElementById('mainContent');
+            mainContent.innerHTML = `
+                <div class="alert alert-danger">
+                    <h6><i class="fas fa-exclamation-triangle me-2"></i>Error</h6>
+                    <p class="mb-0">${message}</p>
+                </div>
+                <div class="text-center mt-3">
+                    <button class="btn btn-secondary" onclick="window.close()">
+                        <i class="fas fa-times me-2"></i>Close
+                    </button>
+                </div>
+            `;
+        }
+        
+        function setStepActive(stepId) {
+            const step = document.getElementById(stepId);
+            step.className = 'step active';
+        }
+        
+        function setStepCompleted(stepId) {
+            const step = document.getElementById(stepId);
+            step.className = 'step completed';
+            const circle = step.querySelector('.step-circle');
+            circle.innerHTML = '<i class="fas fa-check"></i>';
+        }
+    </script>
+</body>
+</html>

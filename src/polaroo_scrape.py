@@ -143,30 +143,27 @@ async def _open_report_from_sidebar(page) -> None:
                 return
     raise PWTimeout("Could not click 'Report' in the sidebar.")
 
-async def _set_date_range_last_month(page) -> None:
-    """Open the date-range picker and select 'Last month' (robust for ng-select)."""
+async def _set_date_range_custom_last_2_months(page) -> None:
+    """Open the date-range picker and select 'Custom' then set date range for last 2 months."""
     print("📅 [DATE] Looking for date range selector...")
-    container = page.locator(".ng-select .ng-select-container").filter(
-        has_text=re.compile(r"last\s+\d+\s*month(s)?|last\s+month", re.I)
-    ).first
+    
+    # First, try to find any date range selector
+    container = page.locator(".ng-select .ng-select-container").first
+    if await container.count() == 0:
+        # Try alternative selectors
+        container = page.locator('[role="combobox"]').first
+        if await container.count() == 0:
+            container = page.locator('select, .form-select').first
 
     if await container.count() == 0:
-        print("🔍 [DATE] Trying alternative selector...")
-        chip = page.get_by_text(re.compile(r"^last\s+\d+\s*month(s)?$|^last\s+month$", re.I)).first
-        if await chip.count():
-            container = chip.locator(
-                'xpath=ancestor-or-self::*[contains(@class,"ng-select")][1]//div[contains(@class,"ng-select-container")]'
-            ).first
-
-    if await container.count() == 0:
-        raise PWTimeout("Date-range selector not found (no ng-select container with 'Last … month').")
+        raise PWTimeout("Date-range selector not found.")
 
     print("✅ [DATE] Found date range selector, opening dropdown...")
     await container.scroll_into_view_if_needed()
     await _wait(page, "before opening date-range menu")
 
     def listbox_open():
-        return page.locator('[role="listbox"], .ng-dropdown-panel').first
+        return page.locator('[role="listbox"], .ng-dropdown-panel, .dropdown-menu').first
 
     opened = False
     try:
@@ -179,7 +176,7 @@ async def _set_date_range_last_month(page) -> None:
         opened = False
 
     if not opened:
-        arrow = container.locator(".ng-arrow-wrapper, .ng-arrow").first
+        arrow = container.locator(".ng-arrow-wrapper, .ng-arrow, .dropdown-toggle").first
         if await arrow.count():
             await arrow.click()
             await page.wait_for_timeout(600)
@@ -207,20 +204,112 @@ async def _set_date_range_last_month(page) -> None:
     print("✅ [DATE] Date range dropdown opened successfully!")
     await _wait(page, "after opening date-range menu")
 
-    print("🔍 [DATE] Looking for 'Last month' option...")
-    option = page.locator(
-        '.ng-dropdown-panel .ng-option',
-        has_text=re.compile(r"^\s*last\s+month(s)?\s*$", re.I),
+    # Look for 'Custom' option
+    print("🔍 [DATE] Looking for 'Custom' option...")
+    custom_option = page.locator(
+        '.ng-dropdown-panel .ng-option, .dropdown-item, option',
+        has_text=re.compile(r"^\s*custom\s*$", re.I),
     ).first
-    if not await option.count():
-        option = page.get_by_text(re.compile(r"^\s*last\s+month(s)?\s*$", re.I)).first
+    if not await custom_option.count():
+        custom_option = page.get_by_text(re.compile(r"^\s*custom\s*$", re.I)).first
 
-    await option.wait_for(timeout=30_000)  # Reduced from 60s to 30s
-    await _wait(page, "before selecting 'Last month'")
-    await option.click()
-    await page.wait_for_load_state("networkidle")
-    await _wait(page, "after selecting 'Last month'")
-    print("✅ [DATE] Successfully selected 'Last month'!")
+    if await custom_option.count():
+        await custom_option.wait_for(timeout=30_000)
+        await _wait(page, "before selecting 'Custom'")
+        await custom_option.click()
+        await page.wait_for_load_state("networkidle")
+        await _wait(page, "after selecting 'Custom'")
+        print("✅ [DATE] Successfully selected 'Custom'!")
+        
+        # Now set the date range for last 2 months
+        await _set_custom_date_range(page)
+    else:
+        print("⚠️ [DATE] 'Custom' option not found, trying to set date range directly...")
+        await _set_custom_date_range(page)
+
+async def _set_custom_date_range(page) -> None:
+    """Set custom date range for the last 2 months."""
+    from datetime import datetime, timedelta
+    
+    print("📅 [CUSTOM_DATE] Setting custom date range for last 2 months...")
+    
+    # Calculate date range (last 2 months)
+    end_date = datetime.now()
+    start_date = end_date - timedelta(days=60)  # Approximately 2 months
+    
+    # Format dates (adjust format based on what Polaroo expects)
+    start_str = start_date.strftime("%Y-%m-%d")
+    end_str = end_date.strftime("%Y-%m-%d")
+    
+    print(f"📅 [CUSTOM_DATE] Date range: {start_str} to {end_str}")
+    
+    # Look for date input fields
+    date_inputs = page.locator('input[type="date"], input[placeholder*="date" i], .date-picker input')
+    
+    if await date_inputs.count() >= 2:
+        # Fill start date
+        start_input = date_inputs.first
+        await start_input.clear()
+        await start_input.fill(start_str)
+        await _wait(page, "after filling start date")
+        
+        # Fill end date
+        end_input = date_inputs.nth(1)
+        await end_input.clear()
+        await end_input.fill(end_str)
+        await _wait(page, "after filling end date")
+        
+        print("✅ [CUSTOM_DATE] Successfully set custom date range!")
+        
+        # Look for apply/confirm button
+        apply_btn = page.locator('button:has-text("Apply"), button:has-text("Confirm"), button:has-text("Set"), .btn-primary')
+        if await apply_btn.count():
+            await apply_btn.first.click()
+            await page.wait_for_load_state("networkidle")
+            await _wait(page, "after applying date range")
+            print("✅ [CUSTOM_DATE] Applied custom date range!")
+    else:
+        print("⚠️ [CUSTOM_DATE] Could not find date input fields, trying alternative approach...")
+        # Try to find any input that might accept date range
+        all_inputs = page.locator('input')
+        input_count = await all_inputs.count()
+        print(f"🔍 [CUSTOM_DATE] Found {input_count} input fields")
+        
+        # Try to fill the first few inputs with our date range
+        for i in range(min(2, input_count)):
+            try:
+                input_field = all_inputs.nth(i)
+                if await input_field.is_visible():
+                    await input_field.clear()
+                    if i == 0:
+                        await input_field.fill(start_str)
+                        print(f"📅 [CUSTOM_DATE] Filled input {i+1} with start date: {start_str}")
+                    else:
+                        await input_field.fill(end_str)
+                        print(f"📅 [CUSTOM_DATE] Filled input {i+1} with end date: {end_str}")
+                    await _wait(page, f"after filling input {i+1}")
+            except Exception as e:
+                print(f"⚠️ [CUSTOM_DATE] Failed to fill input {i+1}: {e}")
+        
+        # Try to find and click apply button
+        apply_selectors = [
+            'button:has-text("Apply")',
+            'button:has-text("Confirm")', 
+            'button:has-text("Set")',
+            'button:has-text("Update")',
+            '.btn-primary',
+            '.btn-success',
+            'input[type="submit"]'
+        ]
+        
+        for selector in apply_selectors:
+            apply_btn = page.locator(selector)
+            if await apply_btn.count() and await apply_btn.first.is_visible():
+                await apply_btn.first.click()
+                await page.wait_for_load_state("networkidle")
+                await _wait(page, "after applying date range")
+                print(f"✅ [CUSTOM_DATE] Applied date range using selector: {selector}")
+                break
 
 async def _open_download_menu(page) -> None:
     """Click the visible 'Download' control."""
@@ -281,11 +370,337 @@ async def _pick_download_excel(page):
     
     raise PWTimeout("Dropdown did not contain 'Download Excel' or 'Download CSV'.")
 
+# ---------- invoice downloading functions ----------
+async def _navigate_to_invoices(page) -> None:
+    """Navigate to the Invoices section from the sidebar."""
+    print("📄 [INVOICES] Looking for Invoices link in sidebar...")
+    candidates = [
+        page.get_by_role("link", name="Invoices"),
+        page.get_by_role("link", name=re.compile(r"\bInvoices\b", re.I)),
+        page.locator('a:has-text("Invoices")'),
+        page.locator('[role="navigation"] >> text=Invoices'),
+        page.locator('nav >> text=Invoices'),
+    ]
+    for i, loc in enumerate(candidates):
+        count = await loc.count()
+        print(f"🔍 [INVOICES] Candidate {i+1}: Found {count} elements")
+        if count:
+            btn = loc.first
+            if await btn.is_visible():
+                print("✅ [INVOICES] Found visible Invoices link, clicking...")
+                await btn.scroll_into_view_if_needed()
+                await _wait(page, "before clicking sidebar → Invoices")
+                await btn.click()
+                await page.wait_for_load_state("domcontentloaded")
+                await page.wait_for_load_state("networkidle")
+                await _wait(page, "after landing on Invoices")
+                print(f"✅ [INVOICES] Successfully navigated to Invoices page: {page.url}")
+                return
+    raise PWTimeout("Could not click 'Invoices' in the sidebar.")
+
+async def _search_for_property_invoices(page, property_name: str) -> None:
+    """Search for invoices related to a specific property using the search bar."""
+    print(f"🔍 [SEARCH] Searching for invoices for property: {property_name}")
+    
+    # Look for search input field
+    search_selectors = [
+        'input[placeholder*="search" i]',
+        'input[type="search"]',
+        '.search-input input',
+        '.filter-input input',
+        'input[name*="search"]',
+        'input[id*="search"]'
+    ]
+    
+    search_input = None
+    for selector in search_selectors:
+        search_input = page.locator(selector)
+        if await search_input.count() and await search_input.first.is_visible():
+            print(f"✅ [SEARCH] Found search input with selector: {selector}")
+            break
+    
+    if not search_input or not await search_input.count():
+        # Try to find any input that might be a search field
+        all_inputs = page.locator('input')
+        input_count = await all_inputs.count()
+        print(f"🔍 [SEARCH] Found {input_count} input fields, trying to identify search field...")
+        
+        for i in range(input_count):
+            input_field = all_inputs.nth(i)
+            if await input_field.is_visible():
+                placeholder = await input_field.get_attribute("placeholder") or ""
+                input_type = await input_field.get_attribute("type") or ""
+                if "search" in placeholder.lower() or input_type == "search":
+                    search_input = input_field
+                    print(f"✅ [SEARCH] Found search input at index {i}")
+                    break
+    
+    if not search_input or not await search_input.count():
+        raise PWTimeout("Could not find search input field in invoices page.")
+    
+    # Clear and fill search field
+    await search_input.clear()
+    await search_input.fill(property_name)
+    await _wait(page, "after filling search field")
+    
+    # Look for search button or press Enter
+    search_btn = page.locator('button:has-text("Search"), button[type="submit"], .search-btn')
+    if await search_btn.count() and await search_btn.first.is_visible():
+        await search_btn.first.click()
+        await page.wait_for_load_state("networkidle")
+        await _wait(page, "after clicking search button")
+        print("✅ [SEARCH] Clicked search button")
+    else:
+        # Press Enter to trigger search
+        await search_input.press("Enter")
+        await page.wait_for_load_state("networkidle")
+        await _wait(page, "after pressing Enter in search field")
+        print("✅ [SEARCH] Pressed Enter to trigger search")
+
+async def _download_invoices_for_property(page, property_name: str) -> list[str]:
+    """Download invoices for a specific property (2 electricity + 1 water)."""
+    print(f"📥 [DOWNLOAD_INVOICES] Starting invoice download for property: {property_name}")
+    
+    # Wait for search results to load
+    await page.wait_for_load_state("networkidle")
+    await _wait(page, "after search results loaded")
+    
+    # Look for invoice table or list
+    table_selectors = [
+        'table',
+        '.invoice-table',
+        '.data-table',
+        '.results-table',
+        '[role="table"]'
+    ]
+    
+    table = None
+    for selector in table_selectors:
+        table = page.locator(selector)
+        if await table.count():
+            print(f"✅ [DOWNLOAD_INVOICES] Found table with selector: {selector}")
+            break
+    
+    if not table or not await table.count():
+        print("⚠️ [DOWNLOAD_INVOICES] No table found, looking for invoice cards or list items...")
+        # Try to find invoice cards or list items
+        invoice_items = page.locator('.invoice-card, .invoice-item, .invoice-row, [data-invoice]')
+        if await invoice_items.count():
+            print(f"✅ [DOWNLOAD_INVOICES] Found {await invoice_items.count()} invoice items")
+        else:
+            raise PWTimeout("Could not find invoice table or items in search results.")
+    
+    downloaded_files = []
+    
+    # Look for service column to identify electricity and water invoices
+    service_column = None
+    if table and await table.count():
+        # Try to find service column header
+        headers = table.locator('th, .table-header')
+        header_count = await headers.count()
+        print(f"🔍 [DOWNLOAD_INVOICES] Found {header_count} table headers")
+        
+        for i in range(header_count):
+            header_text = await headers.nth(i).text_content()
+            if header_text and "service" in header_text.lower():
+                service_column = i
+                print(f"✅ [DOWNLOAD_INVOICES] Found service column at index {i}")
+                break
+    
+    # Download electricity invoices (2 invoices)
+    elec_downloaded = 0
+    max_elec = 2
+    
+    # Download water invoices (1 invoice)
+    water_downloaded = 0
+    max_water = 1
+    
+    # Get all rows in the table
+    if table and await table.count():
+        rows = table.locator('tbody tr, .table-row, .invoice-row')
+        row_count = await rows.count()
+        print(f"🔍 [DOWNLOAD_INVOICES] Found {row_count} invoice rows")
+        
+        for i in range(row_count):
+            row = rows.nth(i)
+            
+            # Check if this is an electricity or water invoice
+            service_type = None
+            if service_column is not None:
+                service_cell = row.locator(f'td:nth-child({service_column + 1}), .col-{service_column + 1}')
+                if await service_cell.count():
+                    service_text = await service_cell.text_content()
+                    if service_text:
+                        service_text = service_text.lower().strip()
+                        if "electricity" in service_text or "elec" in service_text:
+                            service_type = "electricity"
+                        elif "water" in service_text:
+                            service_type = "water"
+            
+            # Look for download button in this row
+            download_btn = row.locator('button:has-text("Download"), a:has-text("Download"), .download-btn, .btn-download')
+            if await download_btn.count() and await download_btn.first.is_visible():
+                # Check if we need this type of invoice
+                should_download = False
+                if service_type == "electricity" and elec_downloaded < max_elec:
+                    should_download = True
+                    elec_downloaded += 1
+                elif service_type == "water" and water_downloaded < max_water:
+                    should_download = True
+                    water_downloaded += 1
+                elif service_type is None:  # If we can't determine service type, download anyway
+                    should_download = True
+                
+                if should_download:
+                    print(f"📥 [DOWNLOAD_INVOICES] Downloading {service_type or 'unknown'} invoice {i+1}")
+                    try:
+                        async with page.expect_download() as dl_info:
+                            await download_btn.first.click()
+                        dl = await dl_info.value
+                        
+                        # Generate filename
+                        suggested = dl.suggested_filename or f"invoice_{property_name}_{i+1}.pdf"
+                        stem = Path(suggested).stem or f"invoice_{property_name}_{i+1}"
+                        ext = Path(suggested).suffix or ".pdf"
+                        ts = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+                        filename = f"{stem}_{ts}{ext}"
+                        
+                        # Save locally
+                        local_path = Path("_debug/downloads") / filename
+                        await dl.save_as(str(local_path))
+                        size = local_path.stat().st_size if local_path.exists() else 0
+                        print(f"💾 [DOWNLOAD_INVOICES] Saved: {local_path} ({size} bytes)")
+                        
+                        downloaded_files.append(str(local_path))
+                        await _wait(page, "after downloading invoice")
+                        
+                    except Exception as e:
+                        print(f"⚠️ [DOWNLOAD_INVOICES] Failed to download invoice {i+1}: {e}")
+    
+    print(f"✅ [DOWNLOAD_INVOICES] Downloaded {len(downloaded_files)} invoices for {property_name}")
+    print(f"   - Electricity: {elec_downloaded}/{max_elec}")
+    print(f"   - Water: {water_downloaded}/{max_water}")
+    
+    return downloaded_files
+
+async def download_invoices_for_property(property_name: str) -> list[str]:
+    """
+    Download invoices for a specific property from Polaroo.
+    Returns list of local file paths for downloaded invoices.
+    """
+    print(f"🚀 [START] Starting invoice download for property: {property_name}")
+    Path("_debug").mkdir(exist_ok=True)
+    Path("_debug/downloads").mkdir(parents=True, exist_ok=True)
+    user_data = str(Path("./.chrome-profile").resolve())
+    Path(user_data).mkdir(exist_ok=True)
+
+    async with async_playwright() as p:
+        print("🌐 [BROWSER] Launching browser...")
+        context = await p.chromium.launch_persistent_context(
+            user_data_dir=user_data,
+            headless=True,
+            slow_mo=0,
+            viewport={"width": 1366, "height": 900},
+            args=[
+                "--disable-gpu",
+                "--no-sandbox", 
+                "--disable-blink-features=AutomationControlled",
+                "--disable-web-security",
+                "--disable-features=VizDisplayCompositor",
+                "--disable-dev-shm-usage",
+                "--disable-extensions",
+                "--disable-plugins",
+                "--disable-images",
+                "--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "--disable-blink-features=AutomationControlled",
+                "--exclude-switches=enable-automation",
+                "--disable-background-timer-throttling",
+                "--disable-backgrounding-occluded-windows",
+                "--disable-renderer-backgrounding"
+            ],
+            accept_downloads=True,
+            ignore_https_errors=True,
+        )
+        context.set_default_timeout(120_000)
+        page = context.pages[0] if context.pages else await context.new_page()
+
+        # Add stealth measures
+        print("🥷 [STEALTH] Adding anti-detection measures...")
+        await page.add_init_script("""
+            Object.defineProperty(navigator, 'webdriver', {
+                get: () => undefined,
+            });
+            Object.defineProperty(navigator, 'plugins', {
+                get: () => [1, 2, 3, 4, 5],
+            });
+            Object.defineProperty(navigator, 'languages', {
+                get: () => ['en-US', 'en'],
+            });
+        """)
+
+        # Debug listeners
+        page.on("console", lambda m: print("🌐 [BROWSER]", m.type, m.text))
+        page.on("requestfailed", lambda r: print("❌ [BROWSER] REQ-FAILED:", r.url, r.failure or ""))
+        page.on("response", lambda r: print("📡 [BROWSER] HTTP", r.status, r.url) if r.status >= 400 else None)
+
+        try:
+            # 1) Login / dashboard
+            print("🔐 [STEP 1/4] Starting login process...")
+            await _ensure_logged_in(page)
+
+            # 2) Navigate to Invoices
+            print("📄 [STEP 2/4] Navigating to Invoices page...")
+            await _navigate_to_invoices(page)
+
+            # 3) Search for property
+            print("🔍 [STEP 3/4] Searching for property invoices...")
+            await _search_for_property_invoices(page, property_name)
+
+            # 4) Download invoices
+            print("📥 [STEP 4/4] Downloading invoices...")
+            downloaded_files = await _download_invoices_for_property(page, property_name)
+
+            print("✅ [SUCCESS] Invoice download completed successfully!")
+            return downloaded_files
+            
+        except Exception as e:
+            print(f"❌ [ERROR] Invoice download failed: {e}")
+            await page.screenshot(path="_debug/invoice_error_screenshot.png")
+            print("📸 [DEBUG] Error screenshot saved to _debug/invoice_error_screenshot.png")
+            raise
+        finally:
+            await context.close()
+            print("🔚 [CLEANUP] Browser closed")
+
+def download_invoices_for_property_sync(property_name: str) -> list[str]:
+    """Synchronous wrapper for download_invoices_for_property that works with FastAPI."""
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            import concurrent.futures
+            import threading
+            
+            def run_in_thread():
+                new_loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(new_loop)
+                try:
+                    return new_loop.run_until_complete(download_invoices_for_property(property_name))
+                finally:
+                    new_loop.close()
+            
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                future = executor.submit(run_in_thread)
+                return future.result()
+        else:
+            return asyncio.run(download_invoices_for_property(property_name))
+    except RuntimeError:
+        return asyncio.run(download_invoices_for_property(property_name))
+
 # ---------- main flow ----------
 async def download_report_bytes() -> tuple[bytes, str]:
     """
     Headful + persistent Chrome profile with deliberate waits:
-      /login → dashboard → sidebar 'Report' → set 'Last month' → Download → Excel
+      /login → dashboard → sidebar 'Report' → set 'Custom' date range (last 2 months) → Download → Excel
       → save locally (timestamped) → upload to Supabase Storage.
     """
     print("🚀 [START] Starting Polaroo report download process...")
@@ -382,9 +797,9 @@ async def download_report_bytes() -> tuple[bytes, str]:
             print("📊 [STEP 2/4] Opening Report page...")
             await _open_report_from_sidebar(page)
 
-            # 3) Set Last month
-            print("📅 [STEP 3/4] Setting date range to Last month...")
-            await _set_date_range_last_month(page)
+            # 3) Set Custom date range for last 2 months
+            print("📅 [STEP 3/4] Setting custom date range for last 2 months...")
+            await _set_date_range_custom_last_2_months(page)
 
             # 4) Download → Excel (preferred) or CSV
             print("📥 [STEP 4/4] Starting download process...")

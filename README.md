@@ -182,6 +182,11 @@ SUPABASE_URL=your_supabase_url
 SUPABASE_SERVICE_KEY=your_supabase_service_key
 STORAGE_BUCKET=polaroo
 
+# PDF Invoice Storage (separate bucket for invoices)
+PDF_BUCKET=polaroo-invoices
+PDF_PREFIX=invoices
+PDF_EXPIRY_MINUTES=10
+
 # Optional Settings
 REPORT_DATE=YYYY-MM-DD  # Specific report date (optional)
 ```
