@@ -621,7 +621,7 @@ async def download_invoices_for_property(property_name: str) -> list[str]:
             accept_downloads=True,
             ignore_https_errors=True,
         )
-        context.set_default_timeout(120_000)
+        context.set_default_timeout(60_000)  # Reduced for production
         page = context.pages[0] if context.pages else await context.new_page()
 
         # Add stealth measures
@@ -717,8 +717,14 @@ async def download_report_bytes() -> tuple[bytes, str]:
             slow_mo=0,       # no manual Resume needed
             viewport={"width": 1366, "height": 900},
             args=[
+                "--no-sandbox",
+                "--disable-dev-shm-usage",
                 "--disable-gpu",
-                "--no-sandbox", 
+                "--disable-extensions",
+                "--disable-background-timer-throttling",
+                "--disable-backgrounding-occluded-windows",
+                "--disable-renderer-backgrounding",
+                "--disable-features=TranslateUI,BlinkGenPropertyTrees", 
                 "--disable-blink-features=AutomationControlled",
                 "--disable-web-security",
                 "--disable-features=VizDisplayCompositor",
@@ -736,7 +742,7 @@ async def download_report_bytes() -> tuple[bytes, str]:
             accept_downloads=True,
             ignore_https_errors=True,
         )
-        context.set_default_timeout(120_000)
+        context.set_default_timeout(60_000)  # Reduced for production
         page = context.pages[0] if context.pages else await context.new_page()
 
         # Add stealth measures to bypass Cloudflare
