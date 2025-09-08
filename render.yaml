@@ -10,6 +10,8 @@ services:
       python --version
       pip install --upgrade pip
       pip install -r requirements.txt
+      playwright install chromium
+      playwright install-deps chromium
     startCommand: python -m uvicorn src.api:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: PYTHON_VERSION
