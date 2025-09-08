@@ -143,7 +143,116 @@ async def _open_report_from_sidebar(page) -> None:
                 return
     raise PWTimeout("Could not click 'Report' in the sidebar.")
 
-async def _set_date_range_custom_last_2_months(page) -> None:
+async def _set_smart_date_range_for_water_cycle(page) -> None:
+    """Smart date range selection: Try simple options first, then add water cycle logic."""
+    print("🧠 [SMART_DATE] Using intelligent water billing cycle logic...")
+    
+    # Step 1: Determine the current water billing cycle
+    water_cycle = _determine_current_water_cycle()
+    print(f"🚰 [WATER_CYCLE] Current water billing cycle: {water_cycle['period']} (Months: {water_cycle['months']})")
+    print(f"💡 [SMART_LOGIC] Will download 3 months data and focus on {water_cycle['period']} billing cycle")
+    
+    # Step 2: Try to select "Last 3 Months" (much simpler than custom dates)
+    success = await _try_simple_date_range(page, "Last 3 Months")
+    if success:
+        print("✅ [SMART_DATE] Successfully set to 'Last 3 Months' - perfect for water cycle analysis!")
+        return
+    
+    # Step 3: Fallback to "Last Month" 
+    success = await _try_simple_date_range(page, "Last Month")
+    if success:
+        print("✅ [SMART_DATE] Set to 'Last Month' - will work with available data")
+        return
+    
+    # Step 4: Final fallback - try the old complex custom date approach
+    print("⚠️ [SMART_DATE] Simple options failed, trying complex custom date selection...")
+    await _set_date_range_custom_last_2_months_fallback(page)
+
+def _determine_current_water_cycle():
+    """Determine the current water billing cycle based on the current month.
+    
+    Water bills come in 2-month cycles:
+    - Jan-Feb, Mar-Apr, May-Jun, Jul-Aug, Sep-Oct, Nov-Dec
+    - For September (current month), the most recent complete cycle is Jul-Aug
+    """
+    from datetime import datetime
+    
+    current_month = datetime.now().month
+    current_year = datetime.now().year
+    
+    # Water billing cycles (2-month periods)
+    cycles = [
+        {"months": [1, 2], "period": "Jan-Feb", "quarter": "Q1"},
+        {"months": [3, 4], "period": "Mar-Apr", "quarter": "Q2"},  
+        {"months": [5, 6], "period": "May-Jun", "quarter": "Q2"},
+        {"months": [7, 8], "period": "Jul-Aug", "quarter": "Q3"},
+        {"months": [9, 10], "period": "Sep-Oct", "quarter": "Q4"},
+        {"months": [11, 12], "period": "Nov-Dec", "quarter": "Q4"}
+    ]
+    
+    # Find the most recent COMPLETE water billing cycle
+    for i, cycle in enumerate(cycles):
+        if current_month in cycle["months"]:
+            # We're currently in this cycle, so the previous cycle is the most recent complete one
+            if i > 0:
+                return cycles[i - 1]
+            else:
+                # If we're in Jan-Feb, the most recent complete cycle is Nov-Dec of previous year
+                return {"months": [11, 12], "period": "Nov-Dec", "quarter": "Q4", "year": current_year - 1}
+    
+    # Fallback: if current month doesn't match any cycle, return the previous cycle
+    for i, cycle in enumerate(cycles):
+        if current_month < min(cycle["months"]):
+            if i > 0:
+                return cycles[i - 1]
+            else:
+                return {"months": [11, 12], "period": "Nov-Dec", "quarter": "Q4", "year": current_year - 1}
+    
+    # Default fallback (shouldn't happen) - return Jul-Aug for September
+    return {"months": [7, 8], "period": "Jul-Aug", "quarter": "Q3"}
+
+async def _try_simple_date_range(page, range_name: str) -> bool:
+    """Try to select a simple predefined date range like 'Last 3 Months'."""
+    print(f"📅 [SIMPLE_DATE] Trying to select '{range_name}'...")
+    
+    try:
+        # Look for the date range selector
+        container = page.locator(".ng-select .ng-select-container").first
+        if await container.count() == 0:
+            container = page.locator('[role="combobox"]').first
+            if await container.count() == 0:
+                container = page.locator('select, .form-select').first
+
+        if await container.count() == 0:
+            print(f"⚠️ [SIMPLE_DATE] No date selector found for '{range_name}'")
+            return False
+
+        # Try to open the dropdown
+        await container.scroll_into_view_if_needed()
+        await container.click()
+        await page.wait_for_timeout(1000)
+
+        # Look for the range option
+        range_option = page.get_by_text(range_name, exact=True).first
+        if not await range_option.count():
+            # Try case-insensitive
+            range_option = page.get_by_text(re.compile(rf"^\\s*{re.escape(range_name)}\\s*$", re.I)).first
+
+        if await range_option.count() and await range_option.is_visible():
+            await range_option.click()
+            await page.wait_for_load_state("networkidle")
+            await page.wait_for_timeout(1000)
+            print(f"✅ [SIMPLE_DATE] Successfully selected '{range_name}'!")
+            return True
+        else:
+            print(f"⚠️ [SIMPLE_DATE] '{range_name}' option not found or not visible")
+            return False
+            
+    except Exception as e:
+        print(f"⚠️ [SIMPLE_DATE] Failed to select '{range_name}': {e}")
+        return False
+
+async def _set_date_range_custom_last_2_months_fallback(page) -> None:
     """Open the date-range picker and select 'Custom' then set date range for last 2 months."""
     print("📅 [DATE] Looking for date range selector...")
     
@@ -815,9 +924,9 @@ async def download_report_bytes() -> tuple[bytes, str]:
             print("📊 [STEP 2/4] Opening Report page...")
             await _open_report_from_sidebar(page)
 
-            # 3) Set Custom date range for last 2 months
-            print("📅 [STEP 3/4] Setting custom date range for last 2 months...")
-            await _set_date_range_custom_last_2_months(page)
+            # 3) Set smart date range for water billing cycle
+            print("📅 [STEP 3/4] Setting smart date range for water billing cycle...")
+            await _set_smart_date_range_for_water_cycle(page)
 
             # 4) Download → Excel (preferred) or CSV
             print("📥 [STEP 4/4] Starting download process...")

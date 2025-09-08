@@ -132,6 +132,11 @@ async def calculate_monthly_report(request: CalculationRequest):
         try:
             file_bytes, filename = await download_report_bytes()
             print(f"✅ [API] Report downloaded: {filename} ({len(file_bytes)} bytes)")
+            
+            # Add smart water cycle filtering
+            water_cycle = _determine_current_water_cycle()
+            print(f"🚰 [WATER_CYCLE] Filtering data for {water_cycle['period']} billing cycle")
+            print(f"💡 [SMART_LOGIC] Downloaded 3 months data, will focus on {water_cycle['period']} period")
         except Exception as e:
             print(f"❌ [API] Scraper failed: {e}")
             return CalculationResponse(
@@ -925,6 +930,49 @@ async def get_book1_emails(request: BookOneEmailRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 # Mock data function removed - no more fallback data!
+
+def _determine_current_water_cycle():
+    """Determine the current water billing cycle based on the current month.
+    
+    Water bills come in 2-month cycles:
+    - Jan-Feb, Mar-Apr, May-Jun, Jul-Aug, Sep-Oct, Nov-Dec
+    - For September (current month), the most recent complete cycle is Jul-Aug
+    """
+    from datetime import datetime
+    
+    current_month = datetime.now().month
+    current_year = datetime.now().year
+    
+    # Water billing cycles (2-month periods)
+    cycles = [
+        {"months": [1, 2], "period": "Jan-Feb", "quarter": "Q1"},
+        {"months": [3, 4], "period": "Mar-Apr", "quarter": "Q2"},  
+        {"months": [5, 6], "period": "May-Jun", "quarter": "Q2"},
+        {"months": [7, 8], "period": "Jul-Aug", "quarter": "Q3"},
+        {"months": [9, 10], "period": "Sep-Oct", "quarter": "Q4"},
+        {"months": [11, 12], "period": "Nov-Dec", "quarter": "Q4"}
+    ]
+    
+    # Find the most recent COMPLETE water billing cycle
+    for i, cycle in enumerate(cycles):
+        if current_month in cycle["months"]:
+            # We're currently in this cycle, so the previous cycle is the most recent complete one
+            if i > 0:
+                return cycles[i - 1]
+            else:
+                # If we're in Jan-Feb, the most recent complete cycle is Nov-Dec of previous year
+                return {"months": [11, 12], "period": "Nov-Dec", "quarter": "Q4", "year": current_year - 1}
+    
+    # Fallback: if current month doesn't match any cycle, return the previous cycle
+    for i, cycle in enumerate(cycles):
+        if current_month < min(cycle["months"]):
+            if i > 0:
+                return cycles[i - 1]
+            else:
+                return {"months": [11, 12], "period": "Nov-Dec", "quarter": "Q4", "year": current_year - 1}
+    
+    # Default fallback (shouldn't happen) - return Jul-Aug for September
+    return {"months": [7, 8], "period": "Jul-Aug", "quarter": "Q3"}
 
 async def load_book1_emails_for_property(property_name: str) -> List[Dict[str, str]]:
     """Load email addresses for a property from Book1.xlsx."""
