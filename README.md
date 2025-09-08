@@ -1,6 +1,19 @@
-# ⚡ Utility Bill Calculator
+# 🏢 **Polaroo Gmail Integration System**
 
-A professional web application for automated monthly utility bill analysis and excess charge calculation. This system scrapes utility data from Polaroo, processes it, and provides detailed insights for property management operations.
+> **Automated utility bill overage management with smart Gmail draft generation**
+
+[![Production](https://img.shields.io/badge/Status-Live%20on%20Render-brightgreen)](https://polaroo-gmail-integration.onrender.com)
+
+**🌐 Production URL:** https://polaroo-gmail-integration.onrender.com
+
+## 🎯 **What This System Does**
+
+1. **📥 Downloads** utility reports from Polaroo with smart water billing cycle logic
+2. **📊 Calculates** overages for properties in Book1.xlsx  
+3. **📧 Generates** Gmail drafts with PDF invoices for properties with overages
+4. **💾 Persists** data across page reloads (24-hour cache)
+
+**📖 See USER_JOURNEY_GUIDE.md for detailed step-by-step user experience**
 
 ## 🏗️ Architecture
 

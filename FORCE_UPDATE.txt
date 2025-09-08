@@ -1,3 +1,0 @@
-FORCE RENDER UPDATE - v1.3.0
-This file forces Render to pull the latest code
-Timestamp: 2025-09-03 10:30:00

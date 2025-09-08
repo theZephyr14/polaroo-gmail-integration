@@ -132,7 +132,7 @@ async def calculate_monthly_report(request: CalculationRequest):
         try:
             file_bytes, filename = await download_report_bytes()
             print(f"✅ [API] Report downloaded: {filename} ({len(file_bytes)} bytes)")
-            
+          
             # Add smart water cycle filtering
             water_cycle = _determine_current_water_cycle()
             print(f"🚰 [WATER_CYCLE] Filtering data for {water_cycle['period']} billing cycle")
